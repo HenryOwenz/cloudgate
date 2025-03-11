@@ -89,6 +89,11 @@ func (p *MockAWSProvider) GetStartPipelineOperation() (cloud.StartPipelineOperat
 	return &MockStartPipelineOperation{}, nil
 }
 
+// GetLambdaExecuteOperation returns an operation for executing Lambda functions
+func (p *MockAWSProvider) GetLambdaExecuteOperation() (cloud.LambdaExecuteOperation, error) {
+	return &MockLambdaExecuteOperation{}, nil
+}
+
 // GetAuthenticationMethods returns available authentication methods
 func (p *MockAWSProvider) GetAuthenticationMethods() []string {
 	return []string{"profile", "access_key"}
@@ -359,6 +364,45 @@ func (o *MockStartPipelineOperation) Execute(ctx context.Context, params map[str
 
 func (o *MockStartPipelineOperation) StartPipelineExecution(ctx context.Context, pipelineName, commitID string) error {
 	return nil
+}
+
+// MockLambdaExecuteOperation implements cloud.LambdaExecuteOperation for testing
+type MockLambdaExecuteOperation struct{}
+
+func (o *MockLambdaExecuteOperation) Name() string {
+	return "Execute Lambda Function"
+}
+
+func (o *MockLambdaExecuteOperation) Description() string {
+	return "Execute a Lambda function"
+}
+
+func (o *MockLambdaExecuteOperation) IsUIVisible() bool {
+	return true
+}
+
+func (o *MockLambdaExecuteOperation) Execute(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	functionName, ok := params["functionName"].(string)
+	if !ok {
+		return nil, fmt.Errorf("function name is required")
+	}
+
+	payload, ok := params["payload"].(string)
+	if !ok {
+		return nil, fmt.Errorf("payload is required")
+	}
+
+	return o.ExecuteFunction(ctx, functionName, payload)
+}
+
+func (o *MockLambdaExecuteOperation) ExecuteFunction(ctx context.Context, functionName string, payload string) (*cloud.LambdaExecuteResult, error) {
+	// Mock implementation
+	return &cloud.LambdaExecuteResult{
+		StatusCode:      200,
+		ExecutedVersion: "$LATEST",
+		Payload:         `{"statusCode": 200, "body": "Function executed successfully"}`,
+		LogResult:       "START RequestId: mock-request-id Version: $LATEST\nEND RequestId: mock-request-id\nREPORT RequestId: mock-request-id Duration: 123.45 ms Billed Duration: 124 ms Memory Size: 128 MB Max Memory Used: 64 MB",
+	}, nil
 }
 
 // MockService implements cloud.Service for testing

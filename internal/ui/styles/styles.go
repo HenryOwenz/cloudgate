@@ -31,9 +31,7 @@ func DefaultStyles() Styles {
 	headerColor := lipgloss.Color(constants.ColorHeader)
 
 	s.App = lipgloss.NewStyle().
-		Padding(constants.PaddingX, constants.PaddingY).
-		MaxWidth(constants.AppMaxWidth).
-		Height(constants.AppHeight) // Increased to accommodate more context
+		Padding(constants.PaddingX, constants.PaddingY)
 
 	s.Title = lipgloss.NewStyle().
 		Bold(true).
@@ -41,18 +39,16 @@ func DefaultStyles() Styles {
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderBottom(true).
 		BorderForeground(subtle).
-		Padding(0, 1).
-		Height(1)
+		Padding(0, 1)
 
 	s.Help = lipgloss.NewStyle().
 		Foreground(subtle).
-		MarginTop(1).
-		Height(1)
+		MarginTop(1)
 
 	s.Context = lipgloss.NewStyle().
 		Foreground(contextColor).
-		Padding(0, 1).
-		Height(5) // Increased from 3 to 5 lines for context
+		Height(6).
+		Padding(0, 1)
 
 	s.Error = lipgloss.NewStyle().
 		Foreground(lipgloss.Color(constants.ColorError)).

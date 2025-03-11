@@ -18,17 +18,11 @@ func UpdateTableForView(m *model.Model) {
 	columns := getColumnsForView(m)
 	rows := getRowsForView(m)
 
-	// Set the table height based on the current view
-	tableHeight := constants.TableHeight
-	if m.CurrentView == constants.ViewPipelineStages {
-		tableHeight = constants.TableHeightLarge
-	}
-
 	t := table.New(
 		table.WithColumns(columns),
 		table.WithRows(rows),
 		table.WithFocused(true),
-		table.WithHeight(tableHeight),
+		table.WithHeight(constants.TableHeight),
 	)
 
 	t.SetStyles(m.Styles.Table)

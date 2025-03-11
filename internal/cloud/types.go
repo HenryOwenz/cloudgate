@@ -24,6 +24,9 @@ type Provider interface {
 	// GetFunctionStatusOperation returns the function status operation
 	GetFunctionStatusOperation() (FunctionStatusOperation, error)
 
+	// GetLambdaExecuteOperation returns the Lambda execute operation
+	GetLambdaExecuteOperation() (LambdaExecuteOperation, error)
+
 	// GetCodePipelineManualApprovalOperation returns the CodePipeline manual approval operation
 	GetCodePipelineManualApprovalOperation() (CodePipelineManualApprovalOperation, error)
 
@@ -160,6 +163,14 @@ type FunctionStatus struct {
 	LogGroup     string
 }
 
+// LambdaExecuteResult represents the result of a Lambda function execution
+type LambdaExecuteResult struct {
+	StatusCode      int
+	ExecutedVersion string
+	Payload         string
+	LogResult       string
+}
+
 // CodePipelineManualApprovalOperation represents a manual approval operation for AWS CodePipeline
 type CodePipelineManualApprovalOperation interface {
 	UIOperation
@@ -193,4 +204,12 @@ type FunctionStatusOperation interface {
 
 	// GetFunctionStatus returns the status of all Lambda functions
 	GetFunctionStatus(ctx context.Context) ([]FunctionStatus, error)
+}
+
+// LambdaExecuteOperation represents an operation to execute a Lambda function
+type LambdaExecuteOperation interface {
+	UIOperation
+
+	// ExecuteFunction executes a Lambda function with the given payload
+	ExecuteFunction(ctx context.Context, functionName string, payload string) (*LambdaExecuteResult, error)
 }

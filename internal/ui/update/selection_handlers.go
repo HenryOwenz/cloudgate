@@ -157,6 +157,12 @@ func SelectOperation(m *model.Model) (tea.Model, tea.Cmd) {
 			case "Start Pipeline":
 				return HandlePipelineStatus(newModel)
 			case "Function Status":
+				// Regular function status flow
+				newModel.IsExecuteLambdaFlow = false
+				return HandleFunctionStatus(newModel)
+			case "Execute Function":
+				// Lambda execution flow
+				newModel.IsExecuteLambdaFlow = true
 				return HandleFunctionStatus(newModel)
 			default:
 				return WrapModel(newModel), nil

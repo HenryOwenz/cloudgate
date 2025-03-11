@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/HenryOwenz/cloudgate/internal/ui/constants"
 	"github.com/HenryOwenz/cloudgate/internal/ui/model"
@@ -63,19 +64,104 @@ func renderLoadingSpinner(m *model.Model) string {
 	return ""
 }
 
-// renderMainContent renders the main content area (table or text input)
+// renderMainContent renders the main content area based on the current view
 func renderMainContent(m *model.Model) string {
-	// For Summary view with approvals, always show text input
-	if m.CurrentView == constants.ViewSummary && m.SelectedApproval != nil {
-		return m.TextInput.View()
-	}
+	switch m.CurrentView {
+	case constants.ViewProviders:
+		return renderTable(m)
+	case constants.ViewAWSConfig:
+		if m.ManualInput {
+			return m.TextInput.View()
+		}
+		return renderTable(m)
+	case constants.ViewSelectService:
+		return renderTable(m)
+	case constants.ViewSelectCategory:
+		return renderTable(m)
+	case constants.ViewSelectOperation:
+		return renderTable(m)
+	case constants.ViewApprovals:
+		return renderTable(m)
+	case constants.ViewConfirmation:
+		return renderTable(m)
+	case constants.ViewSummary:
+		if m.ManualInput {
+			return m.TextInput.View()
+		}
+		return m.Summary
+	case constants.ViewPipelineStatus:
+		return renderTable(m)
+	case constants.ViewPipelineStages:
+		return renderTable(m)
+	case constants.ViewFunctionStatus:
+		return renderTable(m)
+	case constants.ViewFunctionDetails:
+		return renderTable(m)
+	case constants.ViewLambdaExecute:
+		// Set fixed height to match standard table views
+		height := constants.TableHeight
 
-	// For other views, follow normal logic
-	if m.ManualInput {
-		return m.TextInput.View()
-	}
+		// Set the dimensions for the TextArea
+		m.TextArea.SetWidth(m.Width - constants.ViewportMarginX*2)
+		m.TextArea.SetHeight(height)
 
-	return renderTable(m)
+		// Create a custom view with the title and TextArea
+		title := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(constants.ColorTitle)).
+			Render(constants.TitleLambdaExecute)
+
+		// Create a header with a line extending to the width
+		line := strings.Repeat("─", max(0, m.Width-constants.ViewportMarginX*2-lipgloss.Width(title)))
+		header := lipgloss.JoinHorizontal(lipgloss.Center, title, line)
+
+		// Get the main content (TextArea view)
+		content := m.TextArea.View()
+
+		// Add a footer line
+		footerText := ""
+		if m.IsLambdaInputMode {
+			footerText = "INPUT MODE"
+		} else {
+			footerText = "COMMAND MODE"
+		}
+		footer := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(constants.ColorPrimary)).
+			Render(footerText)
+		footerLine := strings.Repeat("─", max(0, m.Width-constants.ViewportMarginX*2-lipgloss.Width(footerText)))
+		footer = lipgloss.JoinHorizontal(lipgloss.Center, footerLine, footer)
+
+		// Return the complete view
+		return fmt.Sprintf("%s\n%s\n%s", header, content, footer)
+	case constants.ViewLambdaResponse:
+		// Create a custom view with the title and Viewport
+		title := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(constants.ColorTitle)).
+			Render(constants.TitleLambdaResponse)
+
+		// Create a header with a line extending to the viewport width
+		line := strings.Repeat("─", max(0, m.Viewport.Width-lipgloss.Width(title)))
+		header := lipgloss.JoinHorizontal(lipgloss.Center, title, line)
+
+		// Add a footer with scroll percentage
+		footerText := fmt.Sprintf("%3.f%%", m.Viewport.ScrollPercent()*100)
+		footer := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(constants.ColorPrimary)).
+			Render(footerText)
+		footerLine := strings.Repeat("─", max(0, m.Viewport.Width-lipgloss.Width(footerText)))
+		footer = lipgloss.JoinHorizontal(lipgloss.Center, footerLine, footer)
+
+		// Set viewport height to match table height
+		m.Viewport.Height = constants.TableHeight
+
+		// Return the complete view
+		return fmt.Sprintf("%s\n%s\n%s", header, m.Viewport.View(), footer)
+	case constants.ViewExecutingAction:
+		return m.LoadingMsg
+	default:
+		return ""
+	}
 }
 
 // renderHelpText renders the help text based on the current view
@@ -110,6 +196,10 @@ func getContextText(m *model.Model) string {
 		return getFunctionStatusContextText(m)
 	case constants.ViewFunctionDetails:
 		return getFunctionDetailsContextText(m)
+	case constants.ViewLambdaExecute:
+		return getLambdaExecuteContextText(m)
+	case constants.ViewLambdaResponse:
+		return getLambdaResponseContextText(m)
 	default:
 		return ""
 	}
@@ -263,6 +353,36 @@ func getFunctionDetailsContextText(m *model.Model) string {
 		m.SelectedFunction.Name)
 }
 
+// getLambdaExecuteContextText returns the context text for the Lambda execution view
+func getLambdaExecuteContextText(m *model.Model) string {
+	if m.SelectedFunction == nil {
+		return ""
+	}
+
+	return fmt.Sprintf(
+		"Profile: %s\nRegion: %s\nService: Lambda\nFunction: %s\nRuntime: %s",
+		m.AwsProfile,
+		m.AwsRegion,
+		m.SelectedFunction.Name,
+		m.SelectedFunction.Runtime,
+	)
+}
+
+// getLambdaResponseContextText returns the context text for the Lambda response view
+func getLambdaResponseContextText(m *model.Model) string {
+	if m.SelectedFunction == nil {
+		return ""
+	}
+
+	return fmt.Sprintf(
+		"Profile: %s\nRegion: %s\nService: Lambda\nFunction: %s\nRuntime: %s",
+		m.AwsProfile,
+		m.AwsRegion,
+		m.SelectedFunction.Name,
+		m.SelectedFunction.Runtime,
+	)
+}
+
 // getTitleText returns the appropriate title for the current view
 func getTitleText(m *model.Model) string {
 	// Map of view types to their corresponding titles
@@ -282,6 +402,8 @@ func getTitleText(m *model.Model) string {
 		constants.ViewHelp:            constants.TitleHelp,
 		constants.ViewFunctionStatus:  constants.TitleFunctionStatus,
 		constants.ViewFunctionDetails: constants.TitleFunctionDetails,
+		constants.ViewLambdaExecute:   constants.TitleLambdaExecute,
+		constants.ViewLambdaResponse:  constants.TitleLambdaResponse,
 	}
 
 	// Special case for AWS config view
@@ -303,10 +425,13 @@ func getTitleText(m *model.Model) string {
 func getHelpText(m *model.Model) string {
 	// Define common help text patterns
 	const (
-		defaultHelpText     = "↑/↓: navigate • %s: select • %s: back • %s: quit"
-		manualInputHelpText = "%s: confirm • %s: cancel • %s: quit"
-		summaryHelpText     = "↑/↓: navigate • %s: select • %s: back • %s: quit"
-		providersHelpText   = "↑/↓: navigate • %s: select • %s: quit"
+		defaultHelpText        = "↑/↓: navigate • %s: select • %s: back • %s: quit"
+		manualInputHelpText    = "%s: confirm • %s: cancel • %s: quit"
+		summaryHelpText        = "↑/↓: navigate • %s: select • %s: back • %s: quit"
+		providersHelpText      = "↑/↓: navigate • %s: select • %s: quit"
+		lambdaCommandModeText  = "-- COMMAND MODE -- • i: enter input mode • enter: execute • %s: back • %s: quit"
+		lambdaInputModeText    = "-- INPUT MODE -- • enter: new line • ctrl+c/esc: exit input mode • %s: back • %s: quit"
+		lambdaResponseHelpText = "↑/↓: scroll • pgup/pgdn: page • home/end: top/bottom • %s: back to editor • %s: quit"
 	)
 
 	// Special cases based on view and state
@@ -319,6 +444,13 @@ func getHelpText(m *model.Model) string {
 		return fmt.Sprintf(manualInputHelpText, constants.KeyEnter, constants.KeyEsc, constants.KeyCtrlC)
 	case m.CurrentView == constants.ViewSummary:
 		return fmt.Sprintf(summaryHelpText, constants.KeyEnter, constants.KeyEsc, constants.KeyQ)
+	case m.CurrentView == constants.ViewLambdaExecute:
+		if m.IsLambdaInputMode {
+			return fmt.Sprintf(lambdaInputModeText, constants.KeyEsc, constants.KeyQ)
+		}
+		return fmt.Sprintf(lambdaCommandModeText, constants.KeyEsc, constants.KeyQ)
+	case m.CurrentView == constants.ViewLambdaResponse:
+		return fmt.Sprintf(lambdaResponseHelpText, constants.KeyEsc, constants.KeyQ)
 	default:
 		return fmt.Sprintf(defaultHelpText, constants.KeyEnter, constants.KeyEsc, constants.KeyQ)
 	}
@@ -330,17 +462,22 @@ func renderTable(m *model.Model) string {
 		return ""
 	}
 
-	// Create a table style with appropriate height based on the current view
-	// Use padding(top, right, bottom, left) to control spacing
-	tableStyle := lipgloss.NewStyle().PaddingTop(1).PaddingRight(2).PaddingBottom(0).PaddingLeft(0)
-
-	// Use larger height for views that need more space
-	if m.CurrentView == constants.ViewPipelineStages {
-		tableStyle = tableStyle.Height(constants.TableHeightLarge)
-	} else {
-		tableStyle = tableStyle.Height(constants.TableHeight)
-	}
+	// Create a table style with fixed height to match viewport
+	tableStyle := lipgloss.NewStyle().
+		Height(constants.TableHeight).
+		PaddingTop(1).
+		PaddingRight(2).
+		PaddingBottom(0).
+		PaddingLeft(0)
 
 	// Render the table with the appropriate styles
 	return tableStyle.Render(m.Table.View())
+}
+
+// Add the max helper function at the end of the file
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

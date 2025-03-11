@@ -68,7 +68,13 @@ func NavigateBack(m *model.Model) *model.Model {
 		newModel.CurrentView = constants.ViewSelectOperation
 		newModel.ResetApprovalState()
 	case constants.ViewConfirmation:
-		newModel.CurrentView = constants.ViewApprovals
+		if m.SelectedApproval != nil {
+			newModel.CurrentView = constants.ViewApprovals
+		} else if m.SelectedPipeline != nil {
+			newModel.CurrentView = constants.ViewPipelineStatus
+		} else {
+			newModel.CurrentView = constants.ViewSelectOperation
+		}
 		newModel.SelectedApproval = nil
 	case constants.ViewSummary:
 		// For pipeline start flow, go back to pipeline status view
@@ -122,7 +128,12 @@ func NavigateBack(m *model.Model) *model.Model {
 	case constants.ViewFunctionDetails:
 		newModel.CurrentView = constants.ViewFunctionStatus
 		newModel.SetSelectedFunction(nil)
+	case constants.ViewLambdaExecute:
+		newModel.CurrentView = constants.ViewFunctionDetails
+	case constants.ViewLambdaResponse:
+		newModel.CurrentView = constants.ViewLambdaExecute
 	}
+
 	return newModel
 }
 
@@ -157,6 +168,13 @@ func HandleTableSelect(m *model.Model) (tea.Model, tea.Cmd) {
 		return HandlePipelineSelection(m)
 	case constants.ViewFunctionStatus:
 		return HandleFunctionSelection(m)
+	case constants.ViewFunctionDetails:
+		// Only go to Lambda execution view if we're in the Lambda execution flow
+		if m.IsExecuteLambdaFlow {
+			return HandleLambdaExecuteSelection(m)
+		}
+		// Otherwise, do nothing
+		return WrapModel(m), nil
 	default:
 		return WrapModel(m), nil
 	}
@@ -382,6 +400,11 @@ func HandleEnter(m *model.Model) (tea.Model, tea.Cmd) {
 	// If manual input is enabled, handle text input submission
 	if m.ManualInput {
 		return HandleTextInputSubmission(m)
+	}
+
+	// Special case for Lambda execution view
+	if m.CurrentView == constants.ViewLambdaExecute {
+		return HandleLambdaExecute(m)
 	}
 
 	// Otherwise, handle table selection

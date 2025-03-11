@@ -28,4 +28,6 @@ const (
 	// Lambda function views
 	ViewFunctionStatus
 	ViewFunctionDetails
+	ViewLambdaExecute
+	ViewLambdaResponse
 )

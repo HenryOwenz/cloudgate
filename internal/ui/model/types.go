@@ -71,3 +71,9 @@ type FunctionStatusMsg struct {
 	Functions []FunctionStatus
 	Provider  cloud.Provider
 }
+
+// LambdaExecuteResultMsg represents the result of a Lambda execution
+type LambdaExecuteResultMsg struct {
+	Result *cloud.LambdaExecuteResult
+	Err    error
+}
