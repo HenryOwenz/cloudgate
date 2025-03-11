@@ -260,31 +260,79 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			// Add viewport navigation keys
 			case constants.KeyUp, constants.KeyAltUp:
+				// If in input mode, pass 'k' to the text input
+				if m.core.IsLambdaInputMode && msg.String() == constants.KeyAltUp {
+					var cmd tea.Cmd
+					newModel := m.Clone()
+					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
+					return newModel, cmd
+				}
 				// Scroll viewport up
 				newModel := m.Clone()
 				newModel.core.Viewport.LineUp(1)
 				return newModel, nil
 			case constants.KeyDown, constants.KeyAltDown:
+				// If in input mode, pass 'j' to the text input
+				if m.core.IsLambdaInputMode && msg.String() == constants.KeyAltDown {
+					var cmd tea.Cmd
+					newModel := m.Clone()
+					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
+					return newModel, cmd
+				}
 				// Scroll viewport down
 				newModel := m.Clone()
 				newModel.core.Viewport.LineDown(1)
 				return newModel, nil
 			case constants.KeyPageUp, constants.KeyAltPageUp:
+				// If in input mode, pass 'b' to the text input
+				if m.core.IsLambdaInputMode && msg.String() == constants.KeyAltPageUp {
+					var cmd tea.Cmd
+					newModel := m.Clone()
+					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
+					return newModel, cmd
+				}
 				// Page up in viewport
 				newModel := m.Clone()
 				newModel.core.Viewport.HalfViewUp()
 				return newModel, nil
 			case constants.KeyPageDown, constants.KeyAltPageDown:
+				// If in input mode, pass 'f' to the text input
+				if m.core.IsLambdaInputMode && msg.String() == constants.KeyAltPageDown {
+					var cmd tea.Cmd
+					newModel := m.Clone()
+					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
+					return newModel, cmd
+				}
 				// Page down in viewport
 				newModel := m.Clone()
 				newModel.core.Viewport.HalfViewDown()
 				return newModel, nil
 			case constants.KeyHome, constants.KeyGotoTop:
+				// If in input mode, pass 'g' to the text input
+				if m.core.IsLambdaInputMode && msg.String() == constants.KeyGotoTop {
+					var cmd tea.Cmd
+					newModel := m.Clone()
+					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
+					return newModel, cmd
+				}
 				// Go to top of viewport
 				newModel := m.Clone()
 				newModel.core.Viewport.GotoTop()
 				return newModel, nil
 			case constants.KeyEnd, constants.KeyGotoBottom:
+				// If in input mode, pass 'G' to the text input
+				if m.core.IsLambdaInputMode && msg.String() == constants.KeyGotoBottom {
+					var cmd tea.Cmd
+					newModel := m.Clone()
+					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
+					return newModel, cmd
+				}
 				// Go to bottom of viewport
 				newModel := m.Clone()
 				newModel.core.Viewport.GotoBottom()
@@ -292,6 +340,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			default:
 				// Pass keys to TextArea only if in input mode
 				if m.core.IsLambdaInputMode {
+					// Always pass these navigation keys to the TextArea
+					key := msg.String()
+					if key == "f" || key == "g" || key == "j" || key == "k" || key == "b" {
+						var cmd tea.Cmd
+						newModel := m.Clone()
+						newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+						newModel.core.LambdaPayload = newModel.core.TextArea.Value()
+						return newModel, cmd
+					}
 					var cmd tea.Cmd
 					newModel := m.Clone()
 					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
