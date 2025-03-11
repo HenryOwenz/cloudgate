@@ -46,6 +46,7 @@ A terminal-based application that unifies multi-cloud operations across AWS, Azu
   | | Start Pipeline | Trigger pipeline execution with latest commit or specific revision |
   | **Lambda** | | |
   | | Function Status | View all Lambda functions with runtime and last update info<br><br>**Function Details View:**<br>Select any function to inspect detailed configuration including memory, timeout, architecture, and other key attributes |
+  | | Execute Function | Invoke Lambda functions directly with custom payload and view execution results |
   
   *Operations can be performed using any configured AWS profile and region (one active profile/region at a time)*  
   *Multi-account aggregation for services will be coming in the future*
