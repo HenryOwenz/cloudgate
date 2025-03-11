@@ -70,6 +70,14 @@ func (p *Provider) GetFunctionStatusOperation() (cloud.FunctionStatusOperation, 
 	return lambda.NewFunctionStatusOperation(p.profile, p.region), nil
 }
 
+// GetLambdaExecuteOperation returns the Lambda execute operation
+func (p *Provider) GetLambdaExecuteOperation() (cloud.LambdaExecuteOperation, error) {
+	if p.profile == "" || p.region == "" {
+		return nil, ErrNotAuthenticated
+	}
+	return lambda.NewLambdaExecuteOperation(p.profile, p.region), nil
+}
+
 // GetCodePipelineManualApprovalOperation returns the CodePipeline manual approval operation
 func (p *Provider) GetCodePipelineManualApprovalOperation() (cloud.CodePipelineManualApprovalOperation, error) {
 	if p.profile == "" || p.region == "" {

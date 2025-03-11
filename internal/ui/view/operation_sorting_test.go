@@ -117,6 +117,10 @@ func (p *MockProvider) GetStartPipelineOperation() (cloud.StartPipelineOperation
 	return nil, nil
 }
 
+func (p *MockProvider) GetLambdaExecuteOperation() (cloud.LambdaExecuteOperation, error) {
+	return nil, nil
+}
+
 func (p *MockProvider) GetAuthenticationMethods() []string {
 	return []string{}
 }

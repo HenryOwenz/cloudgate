@@ -152,6 +152,11 @@ func (w *AWSProviderWrapper) GetStartPipelineOperation() (cloud.StartPipelineOpe
 	return w.provider.GetStartPipelineOperation()
 }
 
+// GetLambdaExecuteOperation returns the Lambda execute operation
+func (w *AWSProviderWrapper) GetLambdaExecuteOperation() (cloud.LambdaExecuteOperation, error) {
+	return w.provider.GetLambdaExecuteOperation()
+}
+
 // GetAuthenticationMethods returns the available authentication methods
 func (w *AWSProviderWrapper) GetAuthenticationMethods() []string {
 	return w.provider.GetAuthenticationMethods()

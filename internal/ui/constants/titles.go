@@ -20,4 +20,6 @@ const (
 	TitleHelp            = "Help"
 	TitleFunctionStatus  = "Lambda Functions"
 	TitleFunctionDetails = "Function Details"
+	TitleLambdaExecute   = "Lambda Payload (JSON)"
+	TitleLambdaResponse  = "Lambda Response"
 )

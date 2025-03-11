@@ -13,10 +13,11 @@ const (
 	ColorSubtle = "#718096" // Gray for subtle elements
 
 	// Status colors
-	ColorSuccess = "#38A169" // Subdued green for success messages (previously #00FF7F)
-	ColorError   = "#E53E3E" // Red for error messages
-	ColorWarning = "#DD6B20" // Orange for warnings
-	ColorInfo    = "#4299E1" // Brighter blue for info messages and column headers (previously #3182CE)
+	ColorSuccess   = "#38A169" // Subdued green for success messages (previously #00FF7F)
+	ColorError     = "#E53E3E" // Red for error messages
+	ColorWarning   = "#DD6B20" // Orange for warnings
+	ColorInfo      = "#4299E1" // Brighter blue for info messages and column headers (previously #3182CE)
+	ColorHighlight = "#F6E05E" // Yellow for highlighting focused elements
 
 	// Background colors
 	ColorBg    = "#1A202C" // Dark background

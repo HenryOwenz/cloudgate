@@ -21,6 +21,7 @@ func NewWorkflowsCategory(profile, region string) *WorkflowsCategory {
 
 	// Register operations
 	category.operations = append(category.operations, NewFunctionStatusOperation(profile, region))
+	category.operations = append(category.operations, NewLambdaExecuteOperation(profile, region))
 
 	return category
 }

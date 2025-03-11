@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/HenryOwenz/cloudgate/internal/ui/constants"
 	"github.com/HenryOwenz/cloudgate/internal/ui/model"
@@ -44,6 +46,41 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newModel := m.Clone()
 		newModel.core.Width = msg.Width
 		newModel.core.Height = msg.Height
+
+		// Update viewport dimensions if we're in the Lambda response view
+		if newModel.core.CurrentView == constants.ViewLambdaResponse {
+			// Create temporary header and footer to calculate their heights
+			title := lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color(constants.ColorTitle)).
+				Render(constants.TitleLambdaResponse)
+			line := strings.Repeat("─", max(0, msg.Width-lipgloss.Width(title)))
+			header := lipgloss.JoinHorizontal(lipgloss.Center, title, line)
+			headerHeight := lipgloss.Height(header)
+
+			footerText := fmt.Sprintf("%3.f%%", 0.0)
+			footer := lipgloss.NewStyle().
+				Foreground(lipgloss.Color(constants.ColorPrimary)).
+				Render(footerText)
+			footerLine := strings.Repeat("─", max(0, msg.Width-lipgloss.Width(footerText)))
+			footer = lipgloss.JoinHorizontal(lipgloss.Center, footerLine, footer)
+			footerHeight := lipgloss.Height(footer)
+
+			verticalMarginHeight := headerHeight + footerHeight
+
+			if !newModel.core.ViewportReady {
+				// First time initialization with proper window dimensions
+				newModel.core.Viewport.Width = msg.Width - constants.ViewportMarginX*2
+				newModel.core.Viewport.Height = msg.Height - verticalMarginHeight
+				newModel.core.Viewport.YPosition = headerHeight
+				newModel.core.ViewportReady = true
+			} else {
+				// Just update dimensions for subsequent window size changes
+				newModel.core.Viewport.Width = msg.Width - constants.ViewportMarginX*2
+				newModel.core.Viewport.Height = msg.Height - verticalMarginHeight
+			}
+		}
+
 		view.UpdateTableForView(newModel.core)
 		return newModel, nil
 	case model.ErrMsg:
@@ -88,6 +125,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		view.UpdateTableForView(newModel.core)
 		return newModel, nil
+	case model.LambdaExecuteResultMsg:
+		newModel := m.Clone()
+		newModel.core = update.HandleLambdaExecuteResult(newModel.core, &msg)
+		return newModel, nil
 	case spinner.TickMsg:
 		newModel := m.Clone()
 		var cmd tea.Cmd
@@ -105,6 +146,158 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			default:
 				// Ignore all other key presses during loading
+				return m, nil
+			}
+		}
+
+		// Special handling for Lambda response view
+		if m.core.CurrentView == constants.ViewLambdaResponse {
+			// Handle quit and back navigation
+			switch msg.String() {
+			case constants.KeyQ, constants.KeyCtrlC:
+				return m, tea.Quit
+			case constants.KeyEsc, constants.KeyAltBack:
+				// Navigate back to the Lambda execution view
+				newModel := m.Clone()
+				newModel.core.CurrentView = constants.ViewLambdaExecute
+				return newModel, nil
+			default:
+				// Pass ALL other keys to the viewport
+				newModel := m.Clone()
+				var cmd tea.Cmd
+				newModel.core.Viewport, cmd = newModel.core.Viewport.Update(msg)
+				return newModel, cmd
+			}
+		}
+
+		// Special handling for Lambda execution view
+		if m.core.CurrentView == constants.ViewLambdaExecute {
+			// Handle special keys
+			switch msg.String() {
+			case constants.KeyQ:
+				return m, tea.Quit
+			case constants.KeyCtrlC:
+				// If in input mode, exit to command mode
+				if m.core.IsLambdaInputMode {
+					newModel := m.Clone()
+					newModel.core.IsLambdaInputMode = false
+					return newModel, nil
+				}
+				// Otherwise, quit the application
+				return m, tea.Quit
+			case constants.KeyEsc, constants.KeyAltBack:
+				// If in input mode, exit to command mode
+				if m.core.IsLambdaInputMode {
+					newModel := m.Clone()
+					newModel.core.IsLambdaInputMode = false
+					return newModel, nil
+				}
+				// Otherwise, navigate back
+				newCore := update.NavigateBack(m.core)
+				view.UpdateTableForView(newCore)
+				return Model{core: newCore}, nil
+			case constants.KeyShiftEnter, constants.KeyCtrlEnter, constants.KeyF5:
+				// Execute the Lambda function regardless of mode
+				modelWrapper, cmd := update.HandleLambdaExecute(m.core)
+				if wrapper, ok := modelWrapper.(update.ModelWrapper); ok {
+					newModel := Model{core: wrapper.Model}
+					if newModel.core.IsLoading {
+						return newModel, tea.Batch(cmd, newModel.core.Spinner.Tick)
+					}
+					return newModel, cmd
+				}
+				return modelWrapper, cmd
+			case constants.KeyTab:
+				// Tab key is now used for text input only
+				if m.core.IsLambdaInputMode {
+					// Pass the tab key to the text area for indentation
+					var cmd tea.Cmd
+					newModel := m.Clone()
+					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+					return newModel, cmd
+				}
+				return m, nil
+			case "i":
+				// Enter input mode (only if not already in input mode)
+				if !m.core.IsLambdaInputMode {
+					newModel := m.Clone()
+					newModel.core.IsLambdaInputMode = true
+					return newModel, nil
+				}
+				// If already in input mode, pass the 'i' key to the TextArea
+				if m.core.IsLambdaInputMode {
+					var cmd tea.Cmd
+					newModel := m.Clone()
+					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
+					return newModel, cmd
+				}
+				return m, nil
+			case constants.KeyEnter:
+				// In input mode, Enter adds new lines
+				// In command mode, Enter executes the Lambda function
+				if !m.core.IsLambdaInputMode {
+					// Command mode - run the Lambda function
+					modelWrapper, cmd := update.HandleLambdaExecute(m.core)
+					if wrapper, ok := modelWrapper.(update.ModelWrapper); ok {
+						newModel := Model{core: wrapper.Model}
+						if newModel.core.IsLoading {
+							return newModel, tea.Batch(cmd, newModel.core.Spinner.Tick)
+						}
+						return newModel, cmd
+					}
+					return modelWrapper, cmd
+				}
+				// If in input mode, let the default handler process the Enter key
+				// (which will add a new line in the TextArea)
+				if m.core.IsLambdaInputMode {
+					var cmd tea.Cmd
+					newModel := m.Clone()
+					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
+					return newModel, cmd
+				}
+				return m, nil
+			// Add viewport navigation keys
+			case constants.KeyUp, constants.KeyAltUp:
+				// Scroll viewport up
+				newModel := m.Clone()
+				newModel.core.Viewport.LineUp(1)
+				return newModel, nil
+			case constants.KeyDown, constants.KeyAltDown:
+				// Scroll viewport down
+				newModel := m.Clone()
+				newModel.core.Viewport.LineDown(1)
+				return newModel, nil
+			case constants.KeyPageUp, constants.KeyAltPageUp:
+				// Page up in viewport
+				newModel := m.Clone()
+				newModel.core.Viewport.HalfViewUp()
+				return newModel, nil
+			case constants.KeyPageDown, constants.KeyAltPageDown:
+				// Page down in viewport
+				newModel := m.Clone()
+				newModel.core.Viewport.HalfViewDown()
+				return newModel, nil
+			case constants.KeyHome, constants.KeyGotoTop:
+				// Go to top of viewport
+				newModel := m.Clone()
+				newModel.core.Viewport.GotoTop()
+				return newModel, nil
+			case constants.KeyEnd, constants.KeyGotoBottom:
+				// Go to bottom of viewport
+				newModel := m.Clone()
+				newModel.core.Viewport.GotoBottom()
+				return newModel, nil
+			default:
+				// Pass keys to TextArea only if in input mode
+				if m.core.IsLambdaInputMode {
+					var cmd tea.Cmd
+					newModel := m.Clone()
+					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
+					return newModel, cmd
+				}
 				return m, nil
 			}
 		}
@@ -250,7 +443,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			newModel.core.Table.MoveDown(newModel.core.Table.Height())
 			return newModel, nil
 		case constants.KeyTab:
-			// Tab key is no longer used
+			// Tab key is now used for text input only
+			if m.core.CurrentView == constants.ViewLambdaExecute && m.core.IsLambdaInputMode {
+				// Pass the tab key to the text area for indentation
+				newModel := m.Clone()
+				var cmd tea.Cmd
+				newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+				return newModel, cmd
+			}
 			return m, nil
 		default:
 			if m.core.ManualInput {
@@ -282,6 +482,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newModel.core.IsLoading = false
 		view.UpdateTableForView(newModel.core)
 		return newModel, nil
+	case tea.MouseMsg:
+		// If we're in the Lambda response view, pass mouse events to the viewport
+		if m.core.CurrentView == constants.ViewLambdaResponse {
+			newModel := m.Clone()
+			var cmd tea.Cmd
+			newModel.core.Viewport, cmd = newModel.core.Viewport.Update(msg)
+			return newModel, cmd
+		}
+		return m, nil
 	}
 
 	// If we're loading, make sure to keep the spinner spinning
@@ -302,4 +511,12 @@ func (m Model) Clone() Model {
 	return Model{
 		core: m.core.Clone(),
 	}
+}
+
+// max returns the larger of two integers
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

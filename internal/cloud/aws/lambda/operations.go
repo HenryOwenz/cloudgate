@@ -2,6 +2,7 @@ package lambda
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 
@@ -151,4 +152,99 @@ func listFunctions(ctx context.Context, client *lambda.Client) ([]types.Function
 	}
 
 	return functions, nil
+}
+
+// Common errors for Lambda execution.
+var (
+	ErrInvokeFunction = errors.New("failed to invoke function")
+)
+
+// LambdaExecuteOperation represents an operation to execute a Lambda function.
+type LambdaExecuteOperation struct {
+	profile string
+	region  string
+}
+
+// NewLambdaExecuteOperation creates a new Lambda execute operation.
+func NewLambdaExecuteOperation(profile, region string) *LambdaExecuteOperation {
+	return &LambdaExecuteOperation{
+		profile: profile,
+		region:  region,
+	}
+}
+
+// Name returns the operation's name.
+func (o *LambdaExecuteOperation) Name() string {
+	return "Execute Function"
+}
+
+// Description returns the operation's description.
+func (o *LambdaExecuteOperation) Description() string {
+	return "Execute Lambda Function with JSON Payload"
+}
+
+// IsUIVisible returns whether this operation should be visible in the UI.
+func (o *LambdaExecuteOperation) IsUIVisible() bool {
+	return true
+}
+
+// ExecuteFunction executes a Lambda function with the given payload.
+func (o *LambdaExecuteOperation) ExecuteFunction(ctx context.Context, functionName string, payload string) (*cloud.LambdaExecuteResult, error) {
+	// Create a new AWS SDK client
+	client, err := getClient(ctx, o.profile, o.region)
+	if err != nil {
+		return nil, err
+	}
+
+	// Invoke the function
+	input := &lambda.InvokeInput{
+		FunctionName: aws.String(functionName),
+		Payload:      []byte(payload),
+		LogType:      types.LogTypeTail, // Include logs in the response
+	}
+
+	output, err := client.Invoke(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvokeFunction, err)
+	}
+
+	// Decode the base64-encoded logs
+	logResult := ""
+	if output.LogResult != nil {
+		decodedLogs, err := base64.StdEncoding.DecodeString(*output.LogResult)
+		if err == nil {
+			logResult = string(decodedLogs)
+		}
+	}
+
+	// Convert the payload to a string
+	payloadStr := ""
+	if output.Payload != nil {
+		payloadStr = string(output.Payload)
+	}
+
+	// Create the result
+	result := &cloud.LambdaExecuteResult{
+		StatusCode:      int(output.StatusCode),
+		ExecutedVersion: aws.ToString(output.ExecutedVersion),
+		Payload:         payloadStr,
+		LogResult:       logResult,
+	}
+
+	return result, nil
+}
+
+// Execute executes the operation with the given parameters.
+func (o *LambdaExecuteOperation) Execute(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	functionName, ok := params["functionName"].(string)
+	if !ok {
+		return nil, fmt.Errorf("function name is required")
+	}
+
+	payload, ok := params["payload"].(string)
+	if !ok {
+		return nil, fmt.Errorf("payload is required")
+	}
+
+	return o.ExecuteFunction(ctx, functionName, payload)
 }

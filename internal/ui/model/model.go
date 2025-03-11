@@ -5,7 +5,9 @@ import (
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -19,6 +21,8 @@ type Model struct {
 	// UI Components
 	Table     table.Model
 	TextInput textinput.Model
+	TextArea  textarea.Model
+	Viewport  viewport.Model
 	Spinner   spinner.Model
 	Styles    styles.Styles
 
@@ -32,6 +36,9 @@ type Model struct {
 	Err         error
 	Error       string // Error message
 	Success     string // Success message
+
+	// Viewport state
+	ViewportReady bool // Tracks if the viewport has been properly initialized
 
 	// Loading state
 	IsLoading  bool
@@ -70,6 +77,19 @@ type Model struct {
 	ManualCommitID    bool
 	CommitID          string
 	ApprovalComment   string
+
+	// Lambda execution state
+	LambdaPayload string
+	LambdaResult  *cloud.LambdaExecuteResult
+
+	// Operation flow tracking
+	IsExecuteLambdaFlow bool
+
+	// UI focus state
+	IsViewportFocused bool
+
+	// Lambda input mode (when true, Enter adds new lines; when false, Enter executes)
+	IsLambdaInputMode bool
 }
 
 // ProviderState represents the state of the selected provider, service, category, and operation
@@ -545,9 +565,55 @@ func (m *Model) GetSelectedFunction() *cloud.FunctionStatus {
 	return m.SelectedFunction
 }
 
-// SetSelectedFunction sets the selected function in the provider-specific state
+// SetSelectedFunction sets the selected function
 func (m *Model) SetSelectedFunction(function *cloud.FunctionStatus) {
+	// Update both structures for compatibility
+	if m.ProviderState.ProviderSpecificState == nil {
+		m.ProviderState.ProviderSpecificState = make(map[string]interface{})
+	}
 	m.ProviderState.ProviderSpecificState["selected-function"] = function
 	// Also set in legacy field for backward compatibility
 	m.SelectedFunction = function
+}
+
+// GetLambdaPayload returns the Lambda payload
+func (m *Model) GetLambdaPayload() string {
+	// First check the new structure
+	if payload, ok := m.InputState.TextValues["lambdaPayload"]; ok {
+		return payload
+	}
+	// Fall back to the legacy field
+	return m.LambdaPayload
+}
+
+// SetLambdaPayload sets the Lambda payload
+func (m *Model) SetLambdaPayload(payload string) {
+	// Update both structures for compatibility
+	if m.InputState.TextValues == nil {
+		m.InputState.TextValues = make(map[string]string)
+	}
+	m.InputState.TextValues["lambdaPayload"] = payload
+	m.LambdaPayload = payload
+}
+
+// GetLambdaResult returns the Lambda execution result
+func (m *Model) GetLambdaResult() *cloud.LambdaExecuteResult {
+	// First check the new structure
+	if result, ok := m.InputState.OperationState["lambdaResult"]; ok {
+		if lambdaResult, ok := result.(*cloud.LambdaExecuteResult); ok {
+			return lambdaResult
+		}
+	}
+	// Fall back to the legacy field
+	return m.LambdaResult
+}
+
+// SetLambdaResult sets the Lambda execution result
+func (m *Model) SetLambdaResult(result *cloud.LambdaExecuteResult) {
+	// Update both structures for compatibility
+	if m.InputState.OperationState == nil {
+		m.InputState.OperationState = make(map[string]interface{})
+	}
+	m.InputState.OperationState["lambdaResult"] = result
+	m.LambdaResult = result
 }

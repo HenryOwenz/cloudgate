@@ -2,16 +2,19 @@ package constants
 
 // Key constants for keyboard input
 const (
-	KeyQ       = "q"
-	KeyCtrlC   = "ctrl+c"
-	KeyEnter   = "enter"
-	KeyEsc     = "esc"
-	KeyUp      = "up"
-	KeyDown    = "down"
-	KeyAltUp   = "k"
-	KeyAltDown = "j"
-	KeyAltBack = "-"
-	KeyTab     = "tab"
+	KeyQ          = "q"
+	KeyCtrlC      = "ctrl+c"
+	KeyEnter      = "enter"
+	KeyCtrlEnter  = "ctrl+enter"
+	KeyShiftEnter = "shift+enter"
+	KeyF5         = "f5"
+	KeyEsc        = "esc"
+	KeyUp         = "up"
+	KeyDown       = "down"
+	KeyAltUp      = "k"
+	KeyAltDown    = "j"
+	KeyAltBack    = "-"
+	KeyTab        = "tab"
 
 	// Vim-like navigation keys
 	KeyGotoTop         = "g"
