@@ -129,8 +129,19 @@ func NavigateBack(m *model.Model) *model.Model {
 		newModel.CurrentView = constants.ViewFunctionStatus
 		newModel.SetSelectedFunction(nil)
 	case constants.ViewLambdaExecute:
-		newModel.CurrentView = constants.ViewFunctionDetails
+		// If we're in the Lambda execution flow, go back to the function status view
+		// Otherwise, go back to the function details view
+		if m.IsExecuteLambdaFlow {
+			newModel.CurrentView = constants.ViewFunctionStatus
+			newModel.SetSelectedFunction(nil)
+			// Make sure the table is updated for the function status view
+			view.UpdateTableForView(newModel)
+		} else {
+			newModel.CurrentView = constants.ViewFunctionDetails
+		}
 	case constants.ViewLambdaResponse:
+		// Always go back to the Lambda execute view
+		// The next back navigation will handle the flow correctly
 		newModel.CurrentView = constants.ViewLambdaExecute
 	}
 
