@@ -100,6 +100,13 @@ make install  # Installs as 'cg' in your $GOPATH/bin
 cg  # Launch the application
 ```
 
+### Command Line Options
+
+| Option | Description |
+|--------|-------------|
+| `cg --upgrade` or `cg -u` | Upgrade cloudgate to the latest version |
+| `cg upgrade` | Upgrade cloudgate to the latest version (alternative syntax) |
+
 ### Navigation
 
 | Key       | Action                   |
