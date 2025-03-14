@@ -158,7 +158,8 @@ func renderMainContent(m *model.Model) string {
 		// Return the complete view
 		return fmt.Sprintf("%s\n%s\n%s", header, m.Viewport.View(), footer)
 	case constants.ViewExecutingAction:
-		return m.LoadingMsg
+		// Show the table instead of just the loading message
+		return renderTable(m)
 	default:
 		return ""
 	}

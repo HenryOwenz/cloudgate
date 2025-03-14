@@ -213,9 +213,18 @@ func TestAWSPipelineStartFlow(t *testing.T) {
 
 	// Test executing action view
 	t.Run("Executing Action View", func(t *testing.T) {
-		// Skip if no pipeline was selected
+		// Create a mock pipeline if none was selected
 		if m.SelectedPipeline == nil {
-			t.Skip("No pipeline selected, skipping executing action view test")
+			m.SelectedPipeline = &cloud.PipelineStatus{
+				Name: "mock-pipeline",
+				Stages: []cloud.StageStatus{
+					{
+						Name:        "Stage1",
+						Status:      "Succeeded",
+						LastUpdated: "2023-01-01",
+					},
+				},
+			}
 		}
 
 		// Set the current view to executing action
@@ -225,6 +234,31 @@ func TestAWSPipelineStartFlow(t *testing.T) {
 		err := update.UpdateModelForView(m)
 		if err != nil {
 			t.Fatalf("Failed to update model for executing action view: %v", err)
+		}
+
+		// Verify that the table is properly initialized with execution options
+		if m.Table.Rows() == nil || len(m.Table.Rows()) == 0 {
+			t.Error("Expected execution options to be loaded, but table rows are empty")
+			return
+		}
+
+		// Verify that the table contains the expected rows
+		foundExecute := false
+		foundCancel := false
+		for _, row := range m.Table.Rows() {
+			if row[0] == "Execute" {
+				foundExecute = true
+			}
+			if row[0] == "Cancel" {
+				foundCancel = true
+			}
+		}
+
+		if !foundExecute {
+			t.Error("Expected 'Execute' option in the table, but it was not found")
+		}
+		if !foundCancel {
+			t.Error("Expected 'Cancel' option in the table, but it was not found")
 		}
 
 		// Note: We don't actually execute the action in the test
