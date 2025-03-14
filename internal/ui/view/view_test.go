@@ -347,3 +347,81 @@ func TestGetTitleText(t *testing.T) {
 		})
 	}
 }
+
+// TestRenderMainContent tests that the renderMainContent function correctly renders content for different views
+func TestRenderMainContent(t *testing.T) {
+	testCases := []struct {
+		name           string
+		setupModel     func() *model.Model
+		expectedChecks func(t *testing.T, content string)
+	}{
+		{
+			name: "ViewExecutingAction - Start Pipeline",
+			setupModel: func() *model.Model {
+				m := model.New()
+				m.CurrentView = constants.ViewExecutingAction
+				m.SelectedOperation = &model.Operation{Name: "Start Pipeline"}
+				m.SelectedPipeline = &cloud.PipelineStatus{Name: "test-pipeline"}
+
+				// Set up the table with execution options
+				UpdateTableForView(m)
+
+				return m
+			},
+			expectedChecks: func(t *testing.T, content string) {
+				// Check that the content contains the table rows
+				if !strings.Contains(content, "Execute") {
+					t.Errorf("Expected content to contain 'Execute' row, got '%s'", content)
+				}
+				if !strings.Contains(content, "Cancel") {
+					t.Errorf("Expected content to contain 'Cancel' row, got '%s'", content)
+				}
+
+				// Check that the content does not contain the loading message
+				if strings.Contains(content, "Loading") {
+					t.Errorf("Content should not contain loading message, got '%s'", content)
+				}
+			},
+		},
+		{
+			name: "ViewExecutingAction - Approval",
+			setupModel: func() *model.Model {
+				m := model.New()
+				m.CurrentView = constants.ViewExecutingAction
+				m.SelectedApproval = &cloud.ApprovalAction{
+					PipelineName: "test-pipeline",
+					StageName:    "test-stage",
+					ActionName:   "test-action",
+				}
+				m.ApproveAction = true
+
+				// Set up the table with execution options
+				UpdateTableForView(m)
+
+				return m
+			},
+			expectedChecks: func(t *testing.T, content string) {
+				// Check that the content contains the table rows
+				if !strings.Contains(content, "Execute") {
+					t.Errorf("Expected content to contain 'Execute' row, got '%s'", content)
+				}
+				if !strings.Contains(content, "Cancel") {
+					t.Errorf("Expected content to contain 'Cancel' row, got '%s'", content)
+				}
+
+				// Check that the content does not contain the loading message
+				if strings.Contains(content, "Loading") {
+					t.Errorf("Content should not contain loading message, got '%s'", content)
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := tc.setupModel()
+			content := renderMainContent(m)
+			tc.expectedChecks(t, content)
+		})
+	}
+}

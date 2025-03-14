@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/HenryOwenz/cloudgate/internal/cloud"
@@ -263,9 +264,15 @@ func TestAWSApprovalsFlow(t *testing.T) {
 
 	// Test executing action view
 	t.Run("Executing Action View", func(t *testing.T) {
-		// Skip if no approval was selected
+		// Create a mock approval if none was selected
 		if m.SelectedApproval == nil {
-			t.Skip("No approval selected, skipping executing action view test")
+			m.SelectedApproval = &cloud.ApprovalAction{
+				PipelineName: "mock-pipeline",
+				StageName:    "mock-stage",
+				ActionName:   "mock-action",
+				Token:        "mock-token",
+			}
+			m.ApproveAction = true
 		}
 
 		// Set the current view to executing action
@@ -275,6 +282,41 @@ func TestAWSApprovalsFlow(t *testing.T) {
 		err := update.UpdateModelForView(m)
 		if err != nil {
 			t.Fatalf("Failed to update model for executing action view: %v", err)
+		}
+
+		// Verify that the table is properly initialized with execution options
+		if m.Table.Rows() == nil || len(m.Table.Rows()) == 0 {
+			t.Error("Expected execution options to be loaded, but table rows are empty")
+			return
+		}
+
+		// Verify that the table contains the expected rows
+		foundExecute := false
+		foundCancel := false
+		for _, row := range m.Table.Rows() {
+			if row[0] == "Execute" {
+				foundExecute = true
+				// Verify the description contains the action type (approve/reject)
+				if m.ApproveAction {
+					if !strings.Contains(row[1], "approve") {
+						t.Errorf("Expected description to contain 'approve', got '%s'", row[1])
+					}
+				} else {
+					if !strings.Contains(row[1], "reject") {
+						t.Errorf("Expected description to contain 'reject', got '%s'", row[1])
+					}
+				}
+			}
+			if row[0] == "Cancel" {
+				foundCancel = true
+			}
+		}
+
+		if !foundExecute {
+			t.Error("Expected 'Execute' option in the table, but it was not found")
+		}
+		if !foundCancel {
+			t.Error("Expected 'Cancel' option in the table, but it was not found")
 		}
 
 		// Note: We don't actually execute the action in the test
