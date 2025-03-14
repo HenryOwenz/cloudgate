@@ -1,4 +1,4 @@
-package cmd
+package commands
 
 import (
 	"fmt"
@@ -6,33 +6,38 @@ import (
 	"os/exec"
 	"runtime"
 
+	"github.com/HenryOwenz/cloudgate/internal/cmd/version"
 	"github.com/spf13/cobra"
 )
 
-// UpgradeCmd represents the upgrade command
-var UpgradeCmd = &cobra.Command{
-	Use:   "upgrade",
-	Short: "Upgrade cloudgate to the latest version",
-	Long:  `Upgrade cloudgate to the latest version from GitHub releases.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		// Check if already on the latest version
-		isNew, latestVersion, _, err := IsNewVersionAvailable()
-		if err != nil {
-			fmt.Println("Unable to check for the latest version. Proceeding with upgrade anyway...")
-		} else if !isNew {
-			fmt.Printf("You are already on the latest version (%s).\n", Version)
-			return
-		} else {
-			fmt.Printf("Upgrading cloudgate from %s to %s...\n", Version, latestVersion)
-		}
+// NewUpgradeCmd creates a new upgrade command
+func NewUpgradeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "upgrade",
+		Short: "Upgrade cloudgate to the latest version",
+		Long:  `Upgrade cloudgate to the latest version from GitHub releases.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			// Check if already on the latest version
+			isNew, latestVersion, err := version.IsUpdateAvailable()
+			if err != nil {
+				fmt.Println("Unable to check for the latest version. Proceeding with upgrade anyway...")
+			} else if !isNew {
+				fmt.Printf("You are already on the latest version (%s).\n", version.Current)
+				return
+			} else {
+				fmt.Printf("Upgrading cloudgate from %s to %s...\n", version.Current, latestVersion)
+			}
 
-		err = upgradeCloudgate()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error upgrading cloudgate: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Println("Upgrade completed successfully!")
-	},
+			err = upgradeCloudgate()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error upgrading cloudgate: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println("Upgrade completed successfully!")
+		},
+	}
+
+	return cmd
 }
 
 // upgradeCloudgate runs the appropriate upgrade script based on the OS

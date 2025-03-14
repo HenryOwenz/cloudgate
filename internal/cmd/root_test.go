@@ -56,7 +56,7 @@ func TestRootCommandFlags(t *testing.T) {
 }
 
 func TestRootCommandSubcommands(t *testing.T) {
-	// Test that the upgrade subcommand is properly added
+	// Test that the upgrade and version subcommands are properly added
 	upgradeFound := false
 	versionFound := false
 

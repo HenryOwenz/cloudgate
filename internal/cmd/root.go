@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/HenryOwenz/cloudgate/internal/cmd/commands"
+	"github.com/HenryOwenz/cloudgate/internal/cmd/version"
 	"github.com/HenryOwenz/cloudgate/internal/ui"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -22,15 +24,17 @@ Where your clouds converge.`,
 		upgrade, _ := cmd.Flags().GetBool("upgrade")
 		if upgrade {
 			// Run the upgrade command
-			UpgradeCmd.Run(cmd, args)
+			upgradeCmd := commands.NewUpgradeCmd()
+			upgradeCmd.Run(cmd, args)
 			return
 		}
 
 		// Check if version flag is set
-		version, _ := cmd.Flags().GetBool("version")
-		if version {
+		versionFlag, _ := cmd.Flags().GetBool("version")
+		if versionFlag {
 			// Run the version command
-			VersionCmd.Run(cmd, args)
+			versionCmd := commands.NewVersionCmd()
+			versionCmd.Run(cmd, args)
 			return
 		}
 
@@ -47,7 +51,7 @@ Where your clouds converge.`,
 		}
 
 		// After the UI exits, check for new version and display message if available
-		fmt.Print(ColoredVersionMessage())
+		fmt.Print(version.ColoredUpdateMessage())
 	},
 }
 
@@ -68,6 +72,6 @@ func init() {
 	rootCmd.Flags().BoolP("version", "v", false, "Display the current version of cloudgate")
 
 	// Add commands
-	rootCmd.AddCommand(UpgradeCmd)
-	rootCmd.AddCommand(VersionCmd)
+	rootCmd.AddCommand(commands.NewUpgradeCmd())
+	rootCmd.AddCommand(commands.NewVersionCmd())
 }
