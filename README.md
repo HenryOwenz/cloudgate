@@ -152,46 +152,6 @@ cloudgate uses a dual-layer architecture:
 
 The application follows a modular design pattern that makes it easy to add new cloud services and operations. Each service is implemented as a separate module with clear interfaces, allowing for independent development and testing.
 
-### Dependency Management
-
-The project uses two complementary approaches to dependency management:
-
-#### 1. Manual Updates via Make Targets
-
-For direct control over dependency updates:
-
-Update to latest patch versions and verify build:
-```bash
-make update-deps
-```
-
-Update to latest patch versions only:
-```bash
-make update-deps-patch
-```
-
-Update to latest minor versions:
-```bash
-make update-deps-minor
-```
-
-Update specific package to latest major version:
-```bash
-make update-deps-major PKG=github.com/example/package
-```
-
-#### 2. Automated Updates via Dependabot
-
-The project uses GitHub Dependabot to automatically create pull requests for dependency updates:
-
-- Weekly checks for Go module updates
-- Monthly checks for GitHub Actions updates
-- Automatic testing of dependency updates
-- Grouped updates to reduce PR noise
-- Safety limits on open PRs to prevent overwhelming the repository
-
-Dependabot configuration can be found in [.github/dependabot.yml](https://github.com/HenryOwenz/cloudgate/blob/main/.github/dependabot.yml).
-
 ## Contributing
 
 1. Fork the repository
