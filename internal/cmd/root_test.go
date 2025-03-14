@@ -38,19 +38,42 @@ func TestRootCommandFlags(t *testing.T) {
 	if upgradeFlag.Usage == "" {
 		t.Error("Flag usage description should not be empty")
 	}
+
+	// Test that the version flag is properly configured
+	versionFlag := rootCmd.Flags().Lookup("version")
+	if versionFlag == nil {
+		t.Error("Expected 'version' flag to be defined")
+		return
+	}
+
+	if versionFlag.Shorthand != "v" {
+		t.Errorf("Expected shorthand for 'version' flag to be 'v', got '%s'", versionFlag.Shorthand)
+	}
+
+	if versionFlag.Usage == "" {
+		t.Error("Flag usage description should not be empty")
+	}
 }
 
 func TestRootCommandSubcommands(t *testing.T) {
 	// Test that the upgrade subcommand is properly added
-	found := false
+	upgradeFound := false
+	versionFound := false
+
 	for _, cmd := range rootCmd.Commands() {
 		if cmd.Use == "upgrade" {
-			found = true
-			break
+			upgradeFound = true
+		}
+		if cmd.Use == "version" {
+			versionFound = true
 		}
 	}
 
-	if !found {
+	if !upgradeFound {
 		t.Error("Expected 'upgrade' subcommand to be added to root command")
+	}
+
+	if !versionFound {
+		t.Error("Expected 'version' subcommand to be added to root command")
 	}
 }

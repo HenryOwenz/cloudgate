@@ -15,8 +15,18 @@ var UpgradeCmd = &cobra.Command{
 	Short: "Upgrade cloudgate to the latest version",
 	Long:  `Upgrade cloudgate to the latest version from GitHub releases.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Upgrading cloudgate to the latest version...")
-		err := upgradeCloudgate()
+		// Check if already on the latest version
+		isNew, latestVersion, _, err := IsNewVersionAvailable()
+		if err != nil {
+			fmt.Println("Unable to check for the latest version. Proceeding with upgrade anyway...")
+		} else if !isNew {
+			fmt.Printf("You are already on the latest version (%s).\n", Version)
+			return
+		} else {
+			fmt.Printf("Upgrading cloudgate from %s to %s...\n", Version, latestVersion)
+		}
+
+		err = upgradeCloudgate()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error upgrading cloudgate: %v\n", err)
 			os.Exit(1)

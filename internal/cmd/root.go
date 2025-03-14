@@ -26,6 +26,14 @@ Where your clouds converge.`,
 			return
 		}
 
+		// Check if version flag is set
+		version, _ := cmd.Flags().GetBool("version")
+		if version {
+			// Run the version command
+			VersionCmd.Run(cmd, args)
+			return
+		}
+
 		// Default behavior - run the UI
 		// Clear the screen using ANSI escape codes (works cross-platform)
 		fmt.Print("\033[H\033[2J")
@@ -37,6 +45,9 @@ Where your clouds converge.`,
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+
+		// After the UI exits, check for new version and display message if available
+		fmt.Print(ColoredVersionMessage())
 	},
 }
 
@@ -53,6 +64,10 @@ func init() {
 	// Add the upgrade flag to the root command
 	rootCmd.Flags().BoolP("upgrade", "u", false, "Upgrade cloudgate to the latest version")
 
+	// Add the version flag to the root command
+	rootCmd.Flags().BoolP("version", "v", false, "Display the current version of cloudgate")
+
 	// Add commands
 	rootCmd.AddCommand(UpgradeCmd)
+	rootCmd.AddCommand(VersionCmd)
 }
