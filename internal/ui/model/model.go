@@ -205,14 +205,14 @@ func New() *Model {
 		Pagination: Pagination{
 			Type:          PaginationTypeNone,
 			CurrentPage:   1,
-			PageSize:      2,
+			PageSize:      5,
 			TotalItems:    -1, // Unknown
 			HasMorePages:  false,
 			IsLoading:     false,
 			AllItems:      make([]interface{}, 0),
 			FilteredItems: make([]interface{}, 0),
 		},
-		PageSize: 2,
+		PageSize: 5,
 
 		// Initialize new state structures
 		ProviderState: ProviderState{
