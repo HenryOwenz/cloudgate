@@ -250,72 +250,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Special handling for Lambda execution view
 		if m.core.CurrentView == constants.ViewLambdaExecute {
-			// Handle special keys
+			// Handle quit and back navigation
 			switch msg.String() {
-			case constants.KeyQ:
-				return m, tea.Quit
-			case constants.KeyCtrlC:
-				// If in input mode, exit to command mode
-				if m.core.IsLambdaInputMode {
-					newModel := m.Clone()
-					newModel.core.IsLambdaInputMode = false
-					return newModel, nil
-				}
-				// Otherwise, quit the application
+			case constants.KeyQ, constants.KeyCtrlC:
 				return m, tea.Quit
 			case constants.KeyEsc, constants.KeyAltBack:
-				// If in input mode, exit to command mode
+				// If in input mode, exit input mode
 				if m.core.IsLambdaInputMode {
 					newModel := m.Clone()
 					newModel.core.IsLambdaInputMode = false
 					return newModel, nil
 				}
-				// Otherwise, navigate back
-				newCore := update.NavigateBack(m.core)
-				view.UpdateTableForView(newCore)
-				return Model{core: newCore}, nil
-			case constants.KeyShiftEnter, constants.KeyCtrlEnter, constants.KeyF5:
-				// Execute the Lambda function regardless of mode
-				modelWrapper, cmd := update.HandleLambdaExecute(m.core)
-				if wrapper, ok := modelWrapper.(update.ModelWrapper); ok {
-					newModel := Model{core: wrapper.Model}
-					if newModel.core.IsLoading {
-						return newModel, tea.Batch(cmd, newModel.core.Spinner.Tick)
-					}
-					return newModel, cmd
+				// Check if we're in the Lambda execution flow
+				newModel := m.Clone()
+				if newModel.core.IsExecuteLambdaFlow {
+					// If in Execute Function flow, go directly back to function status view
+					newModel.core.CurrentView = constants.ViewFunctionStatus
+					newModel.core.SetSelectedFunction(nil)
+					view.UpdateTableForView(newModel.core)
+				} else {
+					// Otherwise, navigate back to the function details view
+					newModel.core.CurrentView = constants.ViewFunctionDetails
 				}
-				return modelWrapper, cmd
-			case constants.KeyTab:
-				// Tab key is now used for text input only
-				if m.core.IsLambdaInputMode {
-					// Pass the tab key to the text area for indentation
-					var cmd tea.Cmd
-					newModel := m.Clone()
-					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
-					return newModel, cmd
-				}
-				return m, nil
-			case "i":
-				// Enter input mode (only if not already in input mode)
-				if !m.core.IsLambdaInputMode {
-					newModel := m.Clone()
-					newModel.core.IsLambdaInputMode = true
-					return newModel, nil
-				}
-				// If already in input mode, pass the 'i' key to the TextArea
-				if m.core.IsLambdaInputMode {
-					var cmd tea.Cmd
-					newModel := m.Clone()
-					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
-					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
-					return newModel, cmd
-				}
-				return m, nil
+				return newModel, nil
 			case constants.KeyEnter:
-				// In input mode, Enter adds new lines
-				// In command mode, Enter executes the Lambda function
+				// In command mode, execute the Lambda function
 				if !m.core.IsLambdaInputMode {
-					// Command mode - run the Lambda function
+					// Execute Lambda function
 					modelWrapper, cmd := update.HandleLambdaExecute(m.core)
 					if wrapper, ok := modelWrapper.(update.ModelWrapper); ok {
 						newModel := Model{core: wrapper.Model}
@@ -326,14 +287,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					return modelWrapper, cmd
 				}
-				// If in input mode, let the default handler process the Enter key
-				// (which will add a new line in the TextArea)
-				if m.core.IsLambdaInputMode {
-					var cmd tea.Cmd
+				// In input mode, add a new line to the text area
+				newModel := m.Clone()
+				var cmd tea.Cmd
+				newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+				newModel.core.LambdaPayload = newModel.core.TextArea.Value()
+				return newModel, cmd
+			case "i":
+				// Enter input mode if not already in it
+				if !m.core.IsLambdaInputMode {
 					newModel := m.Clone()
-					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
-					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
-					return newModel, cmd
+					newModel.core.IsLambdaInputMode = true
+					return newModel, nil
 				}
 				return m, nil
 			// Add viewport navigation keys
@@ -415,6 +380,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				newModel := m.Clone()
 				newModel.core.Viewport.GotoBottom()
 				return newModel, nil
+			case constants.KeySearch, constants.KeyPreviousPage, constants.KeyNextPage:
+				// If in input mode, pass these keys to the text area
+				if m.core.IsLambdaInputMode {
+					var cmd tea.Cmd
+					newModel := m.Clone()
+					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
+					return newModel, cmd
+				}
+				return m, nil
 			default:
 				// Pass keys to TextArea only if in input mode
 				if m.core.IsLambdaInputMode {
@@ -624,6 +599,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		// Add search key handler
 		case constants.KeySearch:
+			// If in text input mode, pass the key to the text input
+			if m.core.ManualInput {
+				newModel := m.Clone()
+				var cmd tea.Cmd
+				newModel.core.TextInput, cmd = newModel.core.TextInput.Update(msg)
+				return newModel, cmd
+			}
 			// Only activate search in paginated views with data
 			if view.IsPaginatedView(m.core.CurrentView) && len(m.core.Pagination.AllItems) > 0 {
 				newModel := m.Clone()
@@ -633,6 +615,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		// Add pagination key handlers
 		case constants.KeyPreviousPage, constants.KeyNextPage:
+			// If in text input mode, pass the key to the text input
+			if m.core.ManualInput {
+				newModel := m.Clone()
+				var cmd tea.Cmd
+				newModel.core.TextInput, cmd = newModel.core.TextInput.Update(msg)
+				return newModel, cmd
+			}
 			// Handle pagination key presses if in a paginated view
 			if view.IsPaginatedView(m.core.CurrentView) {
 				// Pass the exact key string that was pressed

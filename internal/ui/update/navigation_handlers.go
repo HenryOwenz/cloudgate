@@ -22,6 +22,11 @@ func NavigateBack(m *model.Model) *model.Model {
 		newModel.Pagination.AllItems = make([]interface{}, 0)
 		newModel.Pagination.FilteredItems = make([]interface{}, 0)
 		newModel.Pagination.TotalItems = -1
+
+		// Also reset search state
+		newModel.Search.IsActive = false
+		newModel.Search.Query = ""
+		newModel.Search.FilteredItems = make([]interface{}, 0)
 	}
 
 	switch m.CurrentView {

@@ -49,11 +49,26 @@ func HandleApprovalResult(m *model.Model, err error) {
 	m.TextInput.Placeholder = constants.MsgEnterComment
 	m.ManualInput = false
 
+	// Reset pagination state
+	m.Pagination.Type = model.PaginationTypeNone
+	m.Pagination.CurrentPage = 1
+	m.Pagination.HasMorePages = false
+	m.Pagination.AllItems = make([]interface{}, 0)
+	m.Pagination.FilteredItems = make([]interface{}, 0)
+	m.Pagination.TotalItems = 0
+
+	// Reset search state
+	m.Search.IsActive = false
+	m.Search.Query = ""
+	m.Search.FilteredItems = make([]interface{}, 0)
+
 	// Navigate back to the operation selection view
 	m.CurrentView = constants.ViewSelectOperation
 
 	// Clear the approvals list to force a refresh next time
 	m.Approvals = nil
+	m.Pipelines = nil
+	m.Functions = nil
 
 	// Update the table for the current view
 	view.UpdateTableForView(m)

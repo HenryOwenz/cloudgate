@@ -19,42 +19,17 @@ func HandlePaginationKeyPress(m *model.Model, key string) (tea.Model, tea.Cmd) {
 
 	newModel := m.Clone()
 
-	// Check if we're at the end of the items
-	totalItems := int64(len(newModel.Pagination.AllItems))
-	if len(newModel.Search.FilteredItems) > 0 {
-		totalItems = int64(len(newModel.Search.FilteredItems))
-	}
-
-	// Calculate total pages
-	totalPages := 1
-	if totalItems > 0 && int64(newModel.PageSize) > 0 {
-		totalPages = int((totalItems + int64(newModel.PageSize) - 1) / int64(newModel.PageSize))
-	}
-
-	// Define whether wrap-around is enabled (set to false to disable wrap-around)
-	wrapAroundEnabled := false
-
 	switch key {
 	case constants.KeyNextPage: // Next page
 		if newModel.Pagination.HasMorePages && !newModel.Pagination.IsLoading {
 			// Don't return the command directly, just set it up to be executed
 			cmd := FetchNextPage(newModel)
 			return WrapModel(newModel), cmd
-		} else if wrapAroundEnabled && newModel.Pagination.CurrentPage == totalPages && totalPages > 1 {
-			// Wrap around to the first page (only if wrap-around is enabled)
-			newModel.Pagination.CurrentPage = 1
-			cmd := FetchPreviousPage(newModel) // Use previous page to go to page 1
-			return WrapModel(newModel), cmd
 		}
 	case constants.KeyPreviousPage: // Previous page
 		if newModel.Pagination.CurrentPage > 1 && !newModel.Pagination.IsLoading {
 			// Don't return the command directly, just set it up to be executed
 			cmd := FetchPreviousPage(newModel)
-			return WrapModel(newModel), cmd
-		} else if wrapAroundEnabled && newModel.Pagination.CurrentPage == 1 && totalPages > 1 {
-			// Wrap around to the last page (only if wrap-around is enabled)
-			newModel.Pagination.CurrentPage = totalPages
-			cmd := FetchNextPage(newModel) // Use next page to go to the last page
 			return WrapModel(newModel), cmd
 		}
 	}
