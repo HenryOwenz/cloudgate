@@ -9,6 +9,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// IsPaginatedView returns true if the view supports pagination
+func IsPaginatedView(view constants.View) bool {
+	return view == constants.ViewFunctionStatus ||
+		view == constants.ViewPipelineStatus ||
+		view == constants.ViewApprovals
+}
+
 // Render renders the UI
 func Render(m *model.Model) string {
 	if m.Err != nil {
@@ -167,7 +174,41 @@ func renderMainContent(m *model.Model) string {
 
 // renderHelpText renders the help text based on the current view
 func renderHelpText(m *model.Model) string {
-	return m.Styles.Help.Render(getHelpText(m))
+	helpText := getHelpText(m)
+
+	// Add pagination controls if applicable
+	if IsPaginatedView(m.CurrentView) && m.Pagination.Type != model.PaginationTypeNone {
+		// Calculate total pages
+		totalPages := 1
+		if m.Pagination.TotalItems > 0 && m.Pagination.PageSize > 0 {
+			totalPages = int((m.Pagination.TotalItems + int64(m.Pagination.PageSize) - 1) / int64(m.Pagination.PageSize))
+		}
+
+		// Create pagination text
+		paginationText := fmt.Sprintf("Page %d of %d", m.Pagination.CurrentPage, totalPages)
+
+		if m.Pagination.TotalItems >= 0 {
+			paginationText += fmt.Sprintf(" (%d items)", m.Pagination.TotalItems)
+		}
+
+		if m.Pagination.HasMorePages {
+			paginationText += fmt.Sprintf(" [%s: Next Page]", constants.KeyNextPage)
+		}
+
+		if m.Pagination.CurrentPage > 1 {
+			paginationText += fmt.Sprintf(" [%s: Previous Page]", constants.KeyPreviousPage)
+		}
+
+		// Align pagination text to the right
+		helpText = lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			helpText,
+			strings.Repeat(" ", max(0, m.Width-lipgloss.Width(helpText)-lipgloss.Width(paginationText))),
+			m.Styles.Help.Render(paginationText),
+		)
+	}
+
+	return m.Styles.Help.Render(helpText)
 }
 
 // getContextText returns the appropriate context text for the current view

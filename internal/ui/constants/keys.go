@@ -30,6 +30,10 @@ const (
 	KeyAltPageUp       = "b"
 	KeyAltPageDown     = "f"
 	KeySpace           = " "
+
+	// Pagination keys
+	KeyNextPage     = "l"
+	KeyPreviousPage = "h"
 )
 
 // Authentication method constants

@@ -94,7 +94,48 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newModel.core.Provider = msg.Provider
 		newModel.core.CurrentView = constants.ViewApprovals
 		newModel.core.IsLoading = false
-		view.UpdateTableForView(newModel.core)
+
+		// Only show the first page of approvals based on page size
+		pageSize := newModel.core.PageSize
+		initialApprovals := newModel.core.Approvals
+
+		// If we have more approvals than the page size, only show the first page
+		if len(initialApprovals) > pageSize {
+			initialApprovals = initialApprovals[:pageSize]
+		}
+
+		// Convert to an ApprovalsPageMsg for consistent pagination handling
+		approvalsPageMsg := model.ApprovalsPageMsg{
+			Approvals:     initialApprovals,
+			NextPageToken: "2", // Set to page 2 for next page
+			HasMorePages:  len(newModel.core.Approvals) > pageSize,
+		}
+
+		// Use the pagination handler
+		newModel.core = update.HandleApprovalsPagination(newModel.core, approvalsPageMsg)
+
+		// Store all approvals in the pagination state for client-side pagination
+		if len(newModel.core.Approvals) > 0 {
+			for _, approval := range msg.Approvals {
+				// We need to add all approvals to AllItems, not just the ones displayed
+				found := false
+				for _, item := range newModel.core.Pagination.AllItems {
+					if a, ok := item.(model.ApprovalAction); ok &&
+						a.PipelineName == approval.PipelineName &&
+						a.StageName == approval.StageName &&
+						a.ActionName == approval.ActionName {
+						found = true
+						break
+					}
+				}
+				if !found {
+					newModel.core.Pagination.AllItems = append(newModel.core.Pagination.AllItems, approval)
+				}
+			}
+			// Update total items count
+			newModel.core.Pagination.TotalItems = int64(len(newModel.core.Pagination.AllItems))
+		}
+
 		return newModel, nil
 	case model.ApprovalResultMsg:
 		newModel := m.Clone()
@@ -123,7 +164,44 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return strings.ToLower(newModel.core.Functions[i].Name) < strings.ToLower(newModel.core.Functions[j].Name)
 		})
 
-		view.UpdateTableForView(newModel.core)
+		// Convert to a FunctionsPageMsg for consistent pagination handling
+		// Only show the first page of functions based on page size
+		pageSize := newModel.core.PageSize
+		initialFunctions := newModel.core.Functions
+
+		// If we have more functions than the page size, only show the first page
+		if len(initialFunctions) > pageSize {
+			initialFunctions = initialFunctions[:pageSize]
+		}
+
+		functionsPageMsg := model.FunctionsPageMsg{
+			Functions:     initialFunctions,
+			NextPageToken: "2", // Set to page 2 for next page
+			HasMorePages:  len(newModel.core.Functions) > pageSize,
+		}
+
+		// Use the pagination handler
+		newModel.core = update.HandleFunctionStatusPagination(newModel.core, functionsPageMsg)
+
+		// Store all functions in the pagination state for client-side pagination
+		if len(newModel.core.Functions) > 0 {
+			for _, function := range msg.Functions {
+				// We need to add all functions to AllItems, not just the ones displayed
+				found := false
+				for _, item := range newModel.core.Pagination.AllItems {
+					if f, ok := item.(model.FunctionStatus); ok && f.Name == function.Name {
+						found = true
+						break
+					}
+				}
+				if !found {
+					newModel.core.Pagination.AllItems = append(newModel.core.Pagination.AllItems, function)
+				}
+			}
+			// Update total items count
+			newModel.core.Pagination.TotalItems = int64(len(newModel.core.Pagination.AllItems))
+		}
+
 		return newModel, nil
 	case model.LambdaExecuteResultMsg:
 		newModel := m.Clone()
@@ -509,6 +587,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return newModel, cmd
 			}
 			return m, nil
+		// Add pagination key handlers
+		case constants.KeyPreviousPage, constants.KeyNextPage:
+			// Handle pagination key presses if in a paginated view
+			if view.IsPaginatedView(m.core.CurrentView) {
+				// Pass the exact key string that was pressed
+				modelWrapper, cmd := update.HandlePaginationKeyPress(m.core, msg.String())
+				if wrapper, ok := modelWrapper.(update.ModelWrapper); ok {
+					newModel := Model{core: wrapper.Model}
+					if cmd != nil {
+						return newModel, cmd
+					}
+					return newModel, nil
+				}
+				return modelWrapper, cmd
+			}
+			return m, nil
 		default:
 			if m.core.ManualInput {
 				newModel := m.Clone()
@@ -537,7 +631,58 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newModel.core.Provider = msg.Provider
 		newModel.core.CurrentView = constants.ViewPipelineStatus
 		newModel.core.IsLoading = false
-		view.UpdateTableForView(newModel.core)
+
+		// Only show the first page of pipelines based on page size
+		pageSize := newModel.core.PageSize
+		initialPipelines := newModel.core.Pipelines
+
+		// If we have more pipelines than the page size, only show the first page
+		if len(initialPipelines) > pageSize {
+			initialPipelines = initialPipelines[:pageSize]
+		}
+
+		// Convert to a PipelinesPageMsg for consistent pagination handling
+		pipelinesPageMsg := model.PipelinesPageMsg{
+			Pipelines:     initialPipelines,
+			NextPageToken: "2", // Set to page 2 for next page
+			HasMorePages:  len(newModel.core.Pipelines) > pageSize,
+		}
+
+		// Use the pagination handler
+		newModel.core = update.HandlePipelineStatusPagination(newModel.core, pipelinesPageMsg)
+
+		// Store all pipelines in the pagination state for client-side pagination
+		if len(newModel.core.Pipelines) > 0 {
+			for _, pipeline := range msg.Pipelines {
+				// We need to add all pipelines to AllItems, not just the ones displayed
+				found := false
+				for _, item := range newModel.core.Pagination.AllItems {
+					if p, ok := item.(model.PipelineStatus); ok && p.Name == pipeline.Name {
+						found = true
+						break
+					}
+				}
+				if !found {
+					newModel.core.Pagination.AllItems = append(newModel.core.Pagination.AllItems, pipeline)
+				}
+			}
+			// Update total items count
+			newModel.core.Pagination.TotalItems = int64(len(newModel.core.Pagination.AllItems))
+		}
+
+		return newModel, nil
+	// Add handlers for pagination messages
+	case model.FunctionsPageMsg:
+		newModel := m.Clone()
+		newModel.core = update.HandleFunctionStatusPagination(newModel.core, msg)
+		return newModel, nil
+	case model.PipelinesPageMsg:
+		newModel := m.Clone()
+		newModel.core = update.HandlePipelineStatusPagination(newModel.core, msg)
+		return newModel, nil
+	case model.ApprovalsPageMsg:
+		newModel := m.Clone()
+		newModel.core = update.HandleApprovalsPagination(newModel.core, msg)
 		return newModel, nil
 	case tea.MouseMsg:
 		// If we're in the Lambda response view, pass mouse events to the viewport
