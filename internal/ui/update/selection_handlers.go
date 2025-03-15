@@ -37,6 +37,12 @@ func SelectService(m *model.Model) (tea.Model, tea.Cmd) {
 				Description: selectedService.Description(),
 			}
 			newModel.CurrentView = constants.ViewSelectCategory
+
+			// Reset search state
+			newModel.Search.IsActive = false
+			newModel.Search.Query = ""
+			newModel.Search.FilteredItems = make([]interface{}, 0)
+
 			view.UpdateTableForView(newModel)
 			return WrapModel(newModel), nil
 		}
@@ -86,6 +92,12 @@ func SelectCategory(m *model.Model) (tea.Model, tea.Cmd) {
 				Description: selectedCategory.Description(),
 			}
 			newModel.CurrentView = constants.ViewSelectOperation
+
+			// Reset search state
+			newModel.Search.IsActive = false
+			newModel.Search.Query = ""
+			newModel.Search.FilteredItems = make([]interface{}, 0)
+
 			view.UpdateTableForView(newModel)
 			return WrapModel(newModel), nil
 		}
@@ -147,6 +159,11 @@ func SelectOperation(m *model.Model) (tea.Model, tea.Cmd) {
 				Name:        selectedOperation.Name(),
 				Description: selectedOperation.Description(),
 			}
+
+			// Reset search state
+			newModel.Search.IsActive = false
+			newModel.Search.Query = ""
+			newModel.Search.FilteredItems = make([]interface{}, 0)
 
 			// Handle different operations
 			switch operationName {

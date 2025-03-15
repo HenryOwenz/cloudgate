@@ -10,7 +10,7 @@ import (
 
 // Current is the current version of cloudgate
 // This will be set during build time
-var Current = "0.1.6"
+var Current = "0.1.7"
 
 // RepositoryURL is the base URL for the cloudgate repository
 const RepositoryURL = "https://github.com/HenryOwenz/cloudgate"

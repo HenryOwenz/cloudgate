@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/HenryOwenz/cloudgate/internal/ui/constants"
 	"github.com/HenryOwenz/cloudgate/internal/ui/model"
@@ -16,6 +18,16 @@ func HandleFunctionStatusOperation(m *model.Model) (tea.Model, tea.Cmd) {
 	newModel := m.Clone()
 	newModel.IsLoading = true
 	newModel.LoadingMsg = constants.MsgLoadingFunctions
+
+	// Initialize pagination state
+	newModel.Pagination.Type = model.PaginationTypeClientSide
+	newModel.Pagination.CurrentPage = 1
+	newModel.Pagination.PageSize = newModel.PageSize
+	newModel.Pagination.TotalItems = -1 // Unknown until we fetch the data
+	newModel.Pagination.HasMorePages = false
+	newModel.Pagination.IsLoading = true
+	newModel.Pagination.AllItems = make([]interface{}, 0)
+	newModel.Pagination.FilteredItems = make([]interface{}, 0)
 
 	return WrapModel(newModel), func() tea.Msg {
 		// Get the provider
@@ -37,9 +49,31 @@ func HandleFunctionStatusOperation(m *model.Model) (tea.Model, tea.Cmd) {
 			return model.ErrMsg{Err: err}
 		}
 
-		return model.FunctionStatusMsg{
-			Functions: functions,
-			Provider:  provider,
+		// Sort functions by name in ascending order (case-insensitive)
+		// This preserves the original case of function names in the display
+		// while providing a consistent sorting order regardless of casing.
+		sort.Slice(functions, func(i, j int) bool {
+			return strings.ToLower(functions[i].Name) < strings.ToLower(functions[j].Name)
+		})
+
+		// Implement client-side pagination
+		totalItems := int64(len(functions))
+		pageSize := m.PageSize
+
+		// Determine if there are more pages
+		hasMorePages := totalItems > int64(pageSize)
+
+		// Get the first page of functions
+		endIdx := pageSize
+		if endIdx > len(functions) {
+			endIdx = len(functions)
+		}
+		firstPageFunctions := functions[:endIdx]
+
+		return model.FunctionsPageMsg{
+			Functions:     firstPageFunctions,
+			NextPageToken: "1", // Use page number as token for client-side pagination
+			HasMorePages:  hasMorePages,
 		}
 	}
 }

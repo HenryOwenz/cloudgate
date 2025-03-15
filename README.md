@@ -111,18 +111,29 @@ cg  # Launch the application
 
 ### Navigation
 
-| Key       | Action                   |
-|-----------|--------------------------|
-| ↑/↓ or k/j | Navigate options         |
-| Enter     | Select/Confirm           |
-| Esc/-     | Go back/Cancel           |
-| q         | Quit application         |
-| Ctrl+c    | Force quit               |
-| g/G       | Jump to top/bottom       |
-| u/d       | Half page up/down        |
-| b/f       | Page up/down             |
+<details>
+<summary><b>🎮 Keyboard Navigation Commands</b></summary>
 
-**Note:** Vim-style navigation keys (g, G, u, d, etc.) work in table views but are passed through as text when in input mode. Use Esc to exit text input mode.
+| Key                | Action                   |
+|--------------------|--------------------------|
+| ↑/↓ or j/k         | Navigate up/down         |
+| ←/→ or h/l         | Previous/Next page (in paginated views) |
+| Enter              | Select/Confirm           |
+| Esc or -           | Go back/Cancel           |
+| q                  | Quit application         |
+| Ctrl+c             | Force quit               |
+| g                  | Jump to top              |
+| G                  | Jump to bottom           |
+| Home/End           | Jump to top/bottom (alternative) |
+| u or Ctrl+u        | Half page up             |
+| d or Ctrl+d        | Half page down           |
+| b or PgUp          | Page up                  |
+| f or PgDown        | Page down                |
+| /                  | Search (in paginated views) |
+| i                  | Enter input mode (in Lambda execution view) |
+
+**Note:** Vim-style navigation keys (j, k, h, l, g, G, etc.) work in table views but are passed through as text when in input mode. Use Esc to exit text input mode.
+</details>
 
 ## Development
 

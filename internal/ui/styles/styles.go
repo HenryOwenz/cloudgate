@@ -9,12 +9,14 @@ import (
 
 // Styles holds all the UI styling configurations
 type Styles struct {
-	App     lipgloss.Style
-	Title   lipgloss.Style
-	Help    lipgloss.Style
-	Context lipgloss.Style
-	Error   lipgloss.Style
-	Table   table.Styles
+	App          lipgloss.Style
+	Title        lipgloss.Style
+	Help         lipgloss.Style
+	Context      lipgloss.Style
+	Error        lipgloss.Style
+	Table        table.Styles
+	SearchPrompt lipgloss.Style
+	SearchText   lipgloss.Style
 }
 
 // DefaultStyles returns the default styling configuration
@@ -29,6 +31,7 @@ func DefaultStyles() Styles {
 	darkGray := lipgloss.Color(constants.ColorBgAlt)
 	titleColor := lipgloss.Color(constants.ColorTitle)
 	headerColor := lipgloss.Color(constants.ColorHeader)
+	textColor := lipgloss.Color(constants.ColorText)
 
 	s.App = lipgloss.NewStyle().
 		Padding(constants.PaddingX, constants.PaddingY)
@@ -56,6 +59,14 @@ func DefaultStyles() Styles {
 		Padding(0, 1).
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color(constants.ColorError))
+
+	// Search styles
+	s.SearchPrompt = lipgloss.NewStyle().
+		Foreground(highlight).
+		Bold(true)
+
+	s.SearchText = lipgloss.NewStyle().
+		Foreground(textColor)
 
 	// Table styles with fixed height
 	ts := table.DefaultStyles()

@@ -53,6 +53,13 @@ type Model struct {
 	// Input state
 	InputState InputState
 
+	// Pagination state
+	Pagination Pagination
+	PageSize   int // Global page size setting
+
+	// Search state
+	Search SearchState
+
 	// Legacy fields for backward compatibility
 	// These will be gradually migrated to the new structure
 	AwsProfile        string
@@ -172,6 +179,13 @@ type InputState struct {
 	OperationState map[string]interface{} // Operation-specific state
 }
 
+// SearchState represents the state of the search functionality
+type SearchState struct {
+	IsActive      bool          // Whether search mode is active
+	Query         string        // Current search query
+	FilteredItems []interface{} // Items that match the search query
+}
+
 // New creates and initializes a new Model
 func New() *Model {
 	s := spinner.New()
@@ -196,6 +210,26 @@ func New() *Model {
 		CurrentView: constants.ViewProviders,
 		Styles:      styles.DefaultStyles(),
 		Registry:    cloud.NewProviderRegistry(),
+
+		// Initialize pagination state
+		Pagination: Pagination{
+			Type:          PaginationTypeNone,
+			CurrentPage:   1,
+			PageSize:      5,
+			TotalItems:    -1, // Unknown
+			HasMorePages:  false,
+			IsLoading:     false,
+			AllItems:      make([]interface{}, 0),
+			FilteredItems: make([]interface{}, 0),
+		},
+		PageSize: 5,
+
+		// Initialize search state
+		Search: SearchState{
+			IsActive:      false,
+			Query:         "",
+			FilteredItems: make([]interface{}, 0),
+		},
 
 		// Initialize new state structures
 		ProviderState: ProviderState{
@@ -298,6 +332,17 @@ func (m *Model) Clone() *Model {
 	newModel.ProviderState.AuthState.AvailableMethods = make([]string, len(m.ProviderState.AuthState.AvailableMethods))
 	copy(newModel.ProviderState.AuthState.AvailableMethods, m.ProviderState.AuthState.AvailableMethods)
 
+	// Deep copy pagination state
+	if len(m.Pagination.AllItems) > 0 {
+		newModel.Pagination.AllItems = make([]interface{}, len(m.Pagination.AllItems))
+		copy(newModel.Pagination.AllItems, m.Pagination.AllItems)
+	}
+
+	if len(m.Pagination.FilteredItems) > 0 {
+		newModel.Pagination.FilteredItems = make([]interface{}, len(m.Pagination.FilteredItems))
+		copy(newModel.Pagination.FilteredItems, m.Pagination.FilteredItems)
+	}
+
 	// Deep copy maps in InputState
 	newModel.InputState.TextValues = make(map[string]string)
 	for k, v := range m.InputState.TextValues {
@@ -312,6 +357,12 @@ func (m *Model) Clone() *Model {
 	newModel.InputState.OperationState = make(map[string]interface{})
 	for k, v := range m.InputState.OperationState {
 		newModel.InputState.OperationState[k] = v
+	}
+
+	// Deep copy search state
+	if len(m.Search.FilteredItems) > 0 {
+		newModel.Search.FilteredItems = make([]interface{}, len(m.Search.FilteredItems))
+		copy(newModel.Search.FilteredItems, m.Search.FilteredItems)
 	}
 
 	return &newModel

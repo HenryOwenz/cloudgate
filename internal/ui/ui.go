@@ -94,7 +94,48 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newModel.core.Provider = msg.Provider
 		newModel.core.CurrentView = constants.ViewApprovals
 		newModel.core.IsLoading = false
-		view.UpdateTableForView(newModel.core)
+
+		// Only show the first page of approvals based on page size
+		pageSize := newModel.core.PageSize
+		initialApprovals := newModel.core.Approvals
+
+		// If we have more approvals than the page size, only show the first page
+		if len(initialApprovals) > pageSize {
+			initialApprovals = initialApprovals[:pageSize]
+		}
+
+		// Convert to an ApprovalsPageMsg for consistent pagination handling
+		approvalsPageMsg := model.ApprovalsPageMsg{
+			Approvals:     initialApprovals,
+			NextPageToken: "2", // Set to page 2 for next page
+			HasMorePages:  len(newModel.core.Approvals) > pageSize,
+		}
+
+		// Use the pagination handler
+		newModel.core = update.HandleApprovalsPagination(newModel.core, approvalsPageMsg)
+
+		// Store all approvals in the pagination state for client-side pagination
+		if len(newModel.core.Approvals) > 0 {
+			for _, approval := range msg.Approvals {
+				// We need to add all approvals to AllItems, not just the ones displayed
+				found := false
+				for _, item := range newModel.core.Pagination.AllItems {
+					if a, ok := item.(model.ApprovalAction); ok &&
+						a.PipelineName == approval.PipelineName &&
+						a.StageName == approval.StageName &&
+						a.ActionName == approval.ActionName {
+						found = true
+						break
+					}
+				}
+				if !found {
+					newModel.core.Pagination.AllItems = append(newModel.core.Pagination.AllItems, approval)
+				}
+			}
+			// Update total items count
+			newModel.core.Pagination.TotalItems = int64(len(newModel.core.Pagination.AllItems))
+		}
+
 		return newModel, nil
 	case model.ApprovalResultMsg:
 		newModel := m.Clone()
@@ -123,7 +164,44 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return strings.ToLower(newModel.core.Functions[i].Name) < strings.ToLower(newModel.core.Functions[j].Name)
 		})
 
-		view.UpdateTableForView(newModel.core)
+		// Convert to a FunctionsPageMsg for consistent pagination handling
+		// Only show the first page of functions based on page size
+		pageSize := newModel.core.PageSize
+		initialFunctions := newModel.core.Functions
+
+		// If we have more functions than the page size, only show the first page
+		if len(initialFunctions) > pageSize {
+			initialFunctions = initialFunctions[:pageSize]
+		}
+
+		functionsPageMsg := model.FunctionsPageMsg{
+			Functions:     initialFunctions,
+			NextPageToken: "2", // Set to page 2 for next page
+			HasMorePages:  len(newModel.core.Functions) > pageSize,
+		}
+
+		// Use the pagination handler
+		newModel.core = update.HandleFunctionStatusPagination(newModel.core, functionsPageMsg)
+
+		// Store all functions in the pagination state for client-side pagination
+		if len(newModel.core.Functions) > 0 {
+			for _, function := range msg.Functions {
+				// We need to add all functions to AllItems, not just the ones displayed
+				found := false
+				for _, item := range newModel.core.Pagination.AllItems {
+					if f, ok := item.(model.FunctionStatus); ok && f.Name == function.Name {
+						found = true
+						break
+					}
+				}
+				if !found {
+					newModel.core.Pagination.AllItems = append(newModel.core.Pagination.AllItems, function)
+				}
+			}
+			// Update total items count
+			newModel.core.Pagination.TotalItems = int64(len(newModel.core.Pagination.AllItems))
+		}
+
 		return newModel, nil
 	case model.LambdaExecuteResultMsg:
 		newModel := m.Clone()
@@ -172,72 +250,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Special handling for Lambda execution view
 		if m.core.CurrentView == constants.ViewLambdaExecute {
-			// Handle special keys
+			// Handle quit and back navigation
 			switch msg.String() {
-			case constants.KeyQ:
-				return m, tea.Quit
-			case constants.KeyCtrlC:
-				// If in input mode, exit to command mode
-				if m.core.IsLambdaInputMode {
-					newModel := m.Clone()
-					newModel.core.IsLambdaInputMode = false
-					return newModel, nil
-				}
-				// Otherwise, quit the application
+			case constants.KeyQ, constants.KeyCtrlC:
 				return m, tea.Quit
 			case constants.KeyEsc, constants.KeyAltBack:
-				// If in input mode, exit to command mode
+				// If in input mode, exit input mode
 				if m.core.IsLambdaInputMode {
 					newModel := m.Clone()
 					newModel.core.IsLambdaInputMode = false
 					return newModel, nil
 				}
-				// Otherwise, navigate back
-				newCore := update.NavigateBack(m.core)
-				view.UpdateTableForView(newCore)
-				return Model{core: newCore}, nil
-			case constants.KeyShiftEnter, constants.KeyCtrlEnter, constants.KeyF5:
-				// Execute the Lambda function regardless of mode
-				modelWrapper, cmd := update.HandleLambdaExecute(m.core)
-				if wrapper, ok := modelWrapper.(update.ModelWrapper); ok {
-					newModel := Model{core: wrapper.Model}
-					if newModel.core.IsLoading {
-						return newModel, tea.Batch(cmd, newModel.core.Spinner.Tick)
-					}
-					return newModel, cmd
+				// Check if we're in the Lambda execution flow
+				newModel := m.Clone()
+				if newModel.core.IsExecuteLambdaFlow {
+					// If in Execute Function flow, go directly back to function status view
+					newModel.core.CurrentView = constants.ViewFunctionStatus
+					newModel.core.SetSelectedFunction(nil)
+					view.UpdateTableForView(newModel.core)
+				} else {
+					// Otherwise, navigate back to the function details view
+					newModel.core.CurrentView = constants.ViewFunctionDetails
 				}
-				return modelWrapper, cmd
-			case constants.KeyTab:
-				// Tab key is now used for text input only
-				if m.core.IsLambdaInputMode {
-					// Pass the tab key to the text area for indentation
-					var cmd tea.Cmd
-					newModel := m.Clone()
-					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
-					return newModel, cmd
-				}
-				return m, nil
-			case "i":
-				// Enter input mode (only if not already in input mode)
-				if !m.core.IsLambdaInputMode {
-					newModel := m.Clone()
-					newModel.core.IsLambdaInputMode = true
-					return newModel, nil
-				}
-				// If already in input mode, pass the 'i' key to the TextArea
-				if m.core.IsLambdaInputMode {
-					var cmd tea.Cmd
-					newModel := m.Clone()
-					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
-					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
-					return newModel, cmd
-				}
-				return m, nil
+				return newModel, nil
 			case constants.KeyEnter:
-				// In input mode, Enter adds new lines
-				// In command mode, Enter executes the Lambda function
+				// In command mode, execute the Lambda function
 				if !m.core.IsLambdaInputMode {
-					// Command mode - run the Lambda function
+					// Execute Lambda function
 					modelWrapper, cmd := update.HandleLambdaExecute(m.core)
 					if wrapper, ok := modelWrapper.(update.ModelWrapper); ok {
 						newModel := Model{core: wrapper.Model}
@@ -248,14 +287,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					return modelWrapper, cmd
 				}
-				// If in input mode, let the default handler process the Enter key
-				// (which will add a new line in the TextArea)
-				if m.core.IsLambdaInputMode {
-					var cmd tea.Cmd
+				// In input mode, add a new line to the text area
+				newModel := m.Clone()
+				var cmd tea.Cmd
+				newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+				newModel.core.LambdaPayload = newModel.core.TextArea.Value()
+				return newModel, cmd
+			case "i":
+				// Enter input mode if not already in it
+				if !m.core.IsLambdaInputMode {
 					newModel := m.Clone()
-					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
-					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
-					return newModel, cmd
+					newModel.core.IsLambdaInputMode = true
+					return newModel, nil
 				}
 				return m, nil
 			// Add viewport navigation keys
@@ -337,6 +380,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				newModel := m.Clone()
 				newModel.core.Viewport.GotoBottom()
 				return newModel, nil
+			case constants.KeySearch, constants.KeyPreviousPage, constants.KeyNextPage:
+				// If in input mode, pass these keys to the text area
+				if m.core.IsLambdaInputMode {
+					var cmd tea.Cmd
+					newModel := m.Clone()
+					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
+					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
+					return newModel, cmd
+				}
+				return m, nil
 			default:
 				// Pass keys to TextArea only if in input mode
 				if m.core.IsLambdaInputMode {
@@ -354,6 +407,41 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
 					newModel.core.LambdaPayload = newModel.core.TextArea.Value()
 					return newModel, cmd
+				}
+				return m, nil
+			}
+		}
+
+		// Handle search mode input if search is active
+		if m.core.Search.IsActive {
+			switch msg.String() {
+			case constants.KeyEsc, constants.KeyCtrlC:
+				// Exit search mode
+				newModel := m.Clone()
+				newModel.core = update.DeactivateSearch(newModel.core)
+				return newModel, nil
+			case constants.KeyEnter:
+				// Confirm search and exit search mode
+				newModel := m.Clone()
+				newModel.core.Search.IsActive = false
+				return newModel, nil
+			case constants.KeyBackspace:
+				// Handle backspace in search query
+				if len(m.core.Search.Query) > 0 {
+					newModel := m.Clone()
+					newModel.core.Search.Query = newModel.core.Search.Query[:len(newModel.core.Search.Query)-1]
+					newModel.core = update.UpdateSearchQuery(newModel.core, newModel.core.Search.Query)
+					return newModel, nil
+				}
+				return m, nil
+			default:
+				// Add character to search query if it's a printable character
+				r := msg.Runes
+				if len(r) == 1 && update.IsPrintableChar(r[0]) {
+					newModel := m.Clone()
+					newModel.core.Search.Query += string(r)
+					newModel.core = update.UpdateSearchQuery(newModel.core, newModel.core.Search.Query)
+					return newModel, nil
 				}
 				return m, nil
 			}
@@ -509,6 +597,53 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return newModel, cmd
 			}
 			return m, nil
+		// Add search key handler
+		case constants.KeySearch:
+			// If in text input mode, pass the key to the text input
+			if m.core.ManualInput {
+				newModel := m.Clone()
+				var cmd tea.Cmd
+				newModel.core.TextInput, cmd = newModel.core.TextInput.Update(msg)
+				return newModel, cmd
+			}
+			// Only activate search in paginated views with data
+			if view.IsPaginatedView(m.core.CurrentView) && len(m.core.Pagination.AllItems) > 0 {
+				newModel := m.Clone()
+				newModel.core = update.ActivateSearch(newModel.core)
+				return newModel, nil
+			}
+			return m, nil
+		// Add pagination key handlers
+		case constants.KeyPreviousPage, constants.KeyNextPage, constants.KeyArrowPreviousPage, constants.KeyArrowNextPage:
+			// If in text input mode, pass the key to the text input
+			if m.core.ManualInput {
+				newModel := m.Clone()
+				var cmd tea.Cmd
+				newModel.core.TextInput, cmd = newModel.core.TextInput.Update(msg)
+				return newModel, cmd
+			}
+			// Handle pagination key presses if in a paginated view
+			if view.IsPaginatedView(m.core.CurrentView) {
+				// Map arrow keys to their vim-style equivalents for the handler
+				keyString := msg.String()
+				if keyString == constants.KeyArrowPreviousPage {
+					keyString = constants.KeyPreviousPage
+				} else if keyString == constants.KeyArrowNextPage {
+					keyString = constants.KeyNextPage
+				}
+
+				// Pass the key string to the handler
+				modelWrapper, cmd := update.HandlePaginationKeyPress(m.core, keyString)
+				if wrapper, ok := modelWrapper.(update.ModelWrapper); ok {
+					newModel := Model{core: wrapper.Model}
+					if cmd != nil {
+						return newModel, cmd
+					}
+					return newModel, nil
+				}
+				return modelWrapper, cmd
+			}
+			return m, nil
 		default:
 			if m.core.ManualInput {
 				newModel := m.Clone()
@@ -537,7 +672,58 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newModel.core.Provider = msg.Provider
 		newModel.core.CurrentView = constants.ViewPipelineStatus
 		newModel.core.IsLoading = false
-		view.UpdateTableForView(newModel.core)
+
+		// Only show the first page of pipelines based on page size
+		pageSize := newModel.core.PageSize
+		initialPipelines := newModel.core.Pipelines
+
+		// If we have more pipelines than the page size, only show the first page
+		if len(initialPipelines) > pageSize {
+			initialPipelines = initialPipelines[:pageSize]
+		}
+
+		// Convert to a PipelinesPageMsg for consistent pagination handling
+		pipelinesPageMsg := model.PipelinesPageMsg{
+			Pipelines:     initialPipelines,
+			NextPageToken: "2", // Set to page 2 for next page
+			HasMorePages:  len(newModel.core.Pipelines) > pageSize,
+		}
+
+		// Use the pagination handler
+		newModel.core = update.HandlePipelineStatusPagination(newModel.core, pipelinesPageMsg)
+
+		// Store all pipelines in the pagination state for client-side pagination
+		if len(newModel.core.Pipelines) > 0 {
+			for _, pipeline := range msg.Pipelines {
+				// We need to add all pipelines to AllItems, not just the ones displayed
+				found := false
+				for _, item := range newModel.core.Pagination.AllItems {
+					if p, ok := item.(model.PipelineStatus); ok && p.Name == pipeline.Name {
+						found = true
+						break
+					}
+				}
+				if !found {
+					newModel.core.Pagination.AllItems = append(newModel.core.Pagination.AllItems, pipeline)
+				}
+			}
+			// Update total items count
+			newModel.core.Pagination.TotalItems = int64(len(newModel.core.Pagination.AllItems))
+		}
+
+		return newModel, nil
+	// Add handlers for pagination messages
+	case model.FunctionsPageMsg:
+		newModel := m.Clone()
+		newModel.core = update.HandleFunctionStatusPagination(newModel.core, msg)
+		return newModel, nil
+	case model.PipelinesPageMsg:
+		newModel := m.Clone()
+		newModel.core = update.HandlePipelineStatusPagination(newModel.core, msg)
+		return newModel, nil
+	case model.ApprovalsPageMsg:
+		newModel := m.Clone()
+		newModel.core = update.HandleApprovalsPagination(newModel.core, msg)
 		return newModel, nil
 	case tea.MouseMsg:
 		// If we're in the Lambda response view, pass mouse events to the viewport

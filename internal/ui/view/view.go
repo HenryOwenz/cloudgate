@@ -9,6 +9,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// IsPaginatedView returns true if the view supports pagination
+func IsPaginatedView(view constants.View) bool {
+	return view == constants.ViewFunctionStatus ||
+		view == constants.ViewPipelineStatus ||
+		view == constants.ViewApprovals
+}
+
 // Render renders the UI
 func Render(m *model.Model) string {
 	if m.Err != nil {
@@ -167,7 +174,34 @@ func renderMainContent(m *model.Model) string {
 
 // renderHelpText renders the help text based on the current view
 func renderHelpText(m *model.Model) string {
-	return m.Styles.Help.Render(getHelpText(m))
+	// If search is active, show search help text
+	if m.Search.IsActive {
+		searchPrompt := "Search: "
+		searchText := m.Search.Query
+		if len(searchText) == 0 {
+			searchText = "_" // Show cursor placeholder when empty
+		} else {
+			searchText += "_" // Add cursor at the end
+		}
+
+		// Style the search prompt and text
+		styledSearchPrompt := m.Styles.SearchPrompt.Render(searchPrompt)
+		styledSearchText := m.Styles.SearchText.Render(searchText)
+
+		// Add help text
+		helpText := m.Styles.Help.Render(" | Enter: confirm • Esc: cancel")
+
+		return lipgloss.JoinHorizontal(lipgloss.Left, styledSearchPrompt, styledSearchText, helpText)
+	}
+
+	helpText := getHelpText(m)
+
+	// Add search hint to regular help text for paginated views
+	if IsPaginatedView(m.CurrentView) && len(m.Pagination.AllItems) > 0 {
+		helpText += " • /: search"
+	}
+
+	return m.Styles.Help.Render(helpText)
 }
 
 // getContextText returns the appropriate context text for the current view
@@ -415,24 +449,53 @@ func getTitleText(m *model.Model) string {
 		return constants.TitleSelectRegion
 	}
 
-	// Return the title from the map, or empty string if not found
-	if title, ok := titleMap[m.CurrentView]; ok {
-		return title
+	// Get the base title
+	var title string
+	if t, ok := titleMap[m.CurrentView]; ok {
+		title = t
+	} else {
+		return ""
 	}
-	return ""
+
+	// Add pagination information for paginated views
+	if IsPaginatedView(m.CurrentView) && m.Pagination.Type != model.PaginationTypeNone {
+		// Calculate total pages
+		totalPages := 1
+		if m.Pagination.TotalItems > 0 && m.Pagination.PageSize > 0 {
+			totalPages = int((m.Pagination.TotalItems + int64(m.Pagination.PageSize) - 1) / int64(m.Pagination.PageSize))
+		}
+
+		// Create pagination text
+		paginationText := fmt.Sprintf(" - Page %d of %d", m.Pagination.CurrentPage, totalPages)
+
+		if m.Pagination.TotalItems >= 0 {
+			paginationText += fmt.Sprintf(" (%d items)", m.Pagination.TotalItems)
+		}
+
+		// Add search information if search is active
+		if m.Search.IsActive && len(m.Search.Query) > 0 {
+			paginationText += fmt.Sprintf(" - Searching: \"%s\"", m.Search.Query)
+		}
+
+		// Add pagination text to the title
+		title += paginationText
+	}
+
+	return title
 }
 
 // getHelpText returns the appropriate help text for the current view
 func getHelpText(m *model.Model) string {
 	// Define common help text patterns
 	const (
-		defaultHelpText        = "↑/↓: navigate • %s: select • %s: back • %s: quit"
+		defaultHelpText        = "j/k: navigate • %s: select • %s: back • %s: quit"
 		manualInputHelpText    = "%s: confirm • %s: cancel • %s: quit"
-		summaryHelpText        = "↑/↓: navigate • %s: select • %s: back • %s: quit"
-		providersHelpText      = "↑/↓: navigate • %s: select • %s: quit"
+		summaryHelpText        = "j/k: navigate • %s: select • %s: back • %s: quit"
+		providersHelpText      = "j/k: navigate • %s: select • %s: quit"
 		lambdaCommandModeText  = "-- COMMAND MODE -- • i: enter input mode • enter: execute • %s: back • %s: quit"
 		lambdaInputModeText    = "-- INPUT MODE -- • enter: new line • ctrl+c/esc: exit input mode • %s: back • %s: quit"
-		lambdaResponseHelpText = "↑/↓: scroll • pgup/pgdn: page • home/end: top/bottom • %s: back to editor • %s: quit"
+		lambdaResponseHelpText = "j/k: scroll • b/f: page • g/G: top/bottom • %s: back to editor • %s: quit"
+		paginatedViewHelpText  = "j/k: navigate • h: prev page • l: next page • %s: select • %s: back • %s: quit"
 	)
 
 	// Special cases based on view and state
@@ -452,6 +515,8 @@ func getHelpText(m *model.Model) string {
 		return fmt.Sprintf(lambdaCommandModeText, constants.KeyEsc, constants.KeyQ)
 	case m.CurrentView == constants.ViewLambdaResponse:
 		return fmt.Sprintf(lambdaResponseHelpText, constants.KeyEsc, constants.KeyQ)
+	case IsPaginatedView(m.CurrentView) && m.Pagination.Type != model.PaginationTypeNone:
+		return fmt.Sprintf(paginatedViewHelpText, constants.KeyEnter, constants.KeyEsc, constants.KeyQ)
 	default:
 		return fmt.Sprintf(defaultHelpText, constants.KeyEnter, constants.KeyEsc, constants.KeyQ)
 	}

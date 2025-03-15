@@ -52,6 +52,12 @@ func HandleSummaryConfirmation(m *model.Model) (tea.Model, tea.Cmd) {
 		newModel.CurrentView = constants.ViewExecutingAction
 		newModel.ManualInput = false
 		newModel.ResetTextInput()
+
+		// Reset search state
+		newModel.Search.IsActive = false
+		newModel.Search.Query = ""
+		newModel.Search.FilteredItems = make([]interface{}, 0)
+
 		view.UpdateTableForView(newModel)
 		return WrapModel(newModel), nil
 	}
@@ -75,6 +81,25 @@ func HandleSummaryConfirmation(m *model.Model) (tea.Model, tea.Cmd) {
 			newModel.CommitID = ""
 			newModel.ManualCommitID = false
 			newModel.ResetTextInput()
+
+			// Reset pagination state
+			newModel.Pagination.Type = model.PaginationTypeNone
+			newModel.Pagination.CurrentPage = 1
+			newModel.Pagination.HasMorePages = false
+			newModel.Pagination.AllItems = make([]interface{}, 0)
+			newModel.Pagination.FilteredItems = make([]interface{}, 0)
+			newModel.Pagination.TotalItems = 0
+
+			// Reset search state
+			newModel.Search.IsActive = false
+			newModel.Search.Query = ""
+			newModel.Search.FilteredItems = make([]interface{}, 0)
+
+			// Clear any existing data that might have pagination
+			newModel.Pipelines = nil
+			newModel.Functions = nil
+			newModel.Approvals = nil
+
 			view.UpdateTableForView(newModel)
 			return WrapModel(newModel), nil
 		}
@@ -102,6 +127,25 @@ func HandleExecutionSelection(m *model.Model) (tea.Model, tea.Cmd) {
 			newModel.CommitID = ""
 			newModel.ManualCommitID = false
 			newModel.ResetTextInput()
+
+			// Reset pagination state
+			newModel.Pagination.Type = model.PaginationTypeNone
+			newModel.Pagination.CurrentPage = 1
+			newModel.Pagination.HasMorePages = false
+			newModel.Pagination.AllItems = make([]interface{}, 0)
+			newModel.Pagination.FilteredItems = make([]interface{}, 0)
+			newModel.Pagination.TotalItems = 0
+
+			// Reset search state
+			newModel.Search.IsActive = false
+			newModel.Search.Query = ""
+			newModel.Search.FilteredItems = make([]interface{}, 0)
+
+			// Clear any existing data that might have pagination
+			newModel.Pipelines = nil
+			newModel.Functions = nil
+			newModel.Approvals = nil
+
 			view.UpdateTableForView(newModel)
 			return WrapModel(newModel), nil
 		}

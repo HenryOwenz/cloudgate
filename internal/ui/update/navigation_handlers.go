@@ -13,6 +13,22 @@ import (
 func NavigateBack(m *model.Model) *model.Model {
 	newModel := m.Clone()
 
+	// Reset pagination state when navigating away from a paginated view
+	if view.IsPaginatedView(m.CurrentView) {
+		newModel.Pagination.Type = model.PaginationTypeNone
+		newModel.Pagination.CurrentPage = 1
+		newModel.Pagination.HasMorePages = false
+		newModel.Pagination.IsLoading = false
+		newModel.Pagination.AllItems = make([]interface{}, 0)
+		newModel.Pagination.FilteredItems = make([]interface{}, 0)
+		newModel.Pagination.TotalItems = -1
+
+		// Also reset search state
+		newModel.Search.IsActive = false
+		newModel.Search.Query = ""
+		newModel.Search.FilteredItems = make([]interface{}, 0)
+	}
+
 	switch m.CurrentView {
 	case constants.ViewAuthMethodSelect:
 		// Go back to provider selection

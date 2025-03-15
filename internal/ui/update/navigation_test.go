@@ -111,3 +111,83 @@ func TestLambdaNavigationChain(t *testing.T) {
 		t.Errorf("Third navigation: Expected view to be ViewSelectOperation, got %v", result.CurrentView)
 	}
 }
+
+// TestStateResetOnNavigation tests that search and pagination states are properly reset when navigating
+func TestStateResetOnNavigation(t *testing.T) {
+	// Create a model with active search and pagination
+	m := model.New()
+	m.CurrentView = constants.ViewPipelineStatus
+	m.Pagination.Type = model.PaginationTypeClientSide
+	m.Pagination.CurrentPage = 3
+	m.Pagination.HasMorePages = true
+	m.Pagination.PageSize = 5
+	m.Pagination.AllItems = createMockItems(20)
+	m.Pagination.TotalItems = 20
+
+	// Set up search state
+	m.Search.IsActive = true
+	m.Search.Query = "test-query"
+	m.Search.FilteredItems = createMockItems(5)
+
+	// Test navigation back to operation selection
+	t.Run("Reset state when navigating back to operation selection", func(t *testing.T) {
+		// Navigate back to operation selection
+		newModel := NavigateBack(m)
+
+		// Check that search state is reset
+		if newModel.Search.IsActive {
+			t.Errorf("Expected search to be deactivated after navigation, got active")
+		}
+
+		if newModel.Search.Query != "" {
+			t.Errorf("Expected search query to be reset after navigation, got '%s'", newModel.Search.Query)
+		}
+
+		if len(newModel.Search.FilteredItems) > 0 {
+			t.Errorf("Expected filtered items to be cleared after navigation, got %d items",
+				len(newModel.Search.FilteredItems))
+		}
+
+		// Check that pagination state is reset
+		if newModel.Pagination.CurrentPage != 1 {
+			t.Errorf("Expected pagination to be reset to page 1, got page %d",
+				newModel.Pagination.CurrentPage)
+		}
+
+		if newModel.Pagination.Type != model.PaginationTypeNone {
+			t.Errorf("Expected pagination type to be reset to None, got %v",
+				newModel.Pagination.Type)
+		}
+
+		if len(newModel.Pagination.AllItems) > 0 {
+			t.Errorf("Expected all items to be cleared after navigation, got %d items",
+				len(newModel.Pagination.AllItems))
+		}
+	})
+
+	// Test navigation to a different view
+	t.Run("Reset state when navigating to a different view", func(t *testing.T) {
+		// Set up a model with a different view
+		m.CurrentView = constants.ViewApprovals
+
+		// Navigate to a different view (simulate by directly changing the view)
+		newModel := m.Clone()
+		newModel.CurrentView = constants.ViewPipelineStatus
+		newModel = NavigateBack(newModel) // Use NavigateBack to reset state
+
+		// Check that search state is reset
+		if newModel.Search.IsActive {
+			t.Errorf("Expected search to be deactivated after navigation, got active")
+		}
+
+		if newModel.Search.Query != "" {
+			t.Errorf("Expected search query to be reset after navigation, got '%s'", newModel.Search.Query)
+		}
+
+		// Check that pagination state is reset
+		if newModel.Pagination.CurrentPage != 1 {
+			t.Errorf("Expected pagination to be reset to page 1, got page %d",
+				newModel.Pagination.CurrentPage)
+		}
+	})
+}

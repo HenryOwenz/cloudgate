@@ -44,6 +44,33 @@ type PipelineStatus = cloud.PipelineStatus
 // FunctionStatus is an alias for cloud.FunctionStatus
 type FunctionStatus = cloud.FunctionStatus
 
+// PaginationType represents the type of pagination to use
+type PaginationType int
+
+const (
+	// PaginationTypeNone indicates no pagination is needed
+	PaginationTypeNone PaginationType = iota
+	// PaginationTypeAPI indicates API-level pagination (e.g., Lambda)
+	PaginationTypeAPI
+	// PaginationTypeClientSide indicates client-side pagination (e.g., S3)
+	PaginationTypeClientSide
+)
+
+// Pagination represents a generic pagination state
+type Pagination struct {
+	Type          PaginationType
+	CurrentPage   int
+	PageSize      int
+	TotalItems    int64 // May be unknown (-1)
+	HasMorePages  bool
+	NextPageToken string // Service-specific token
+	IsLoading     bool
+
+	// For client-side pagination
+	AllItems      []interface{} // All items fetched so far
+	FilteredItems []interface{} // Items after filtering
+}
+
 // ApprovalsMsg represents a message containing approvals
 type ApprovalsMsg struct {
 	Approvals []ApprovalAction
@@ -76,4 +103,25 @@ type FunctionStatusMsg struct {
 type LambdaExecuteResultMsg struct {
 	Result *cloud.LambdaExecuteResult
 	Err    error
+}
+
+// FunctionsPageMsg represents a message containing a page of functions
+type FunctionsPageMsg struct {
+	Functions     []FunctionStatus
+	NextPageToken string
+	HasMorePages  bool
+}
+
+// PipelinesPageMsg represents a message containing a page of pipelines
+type PipelinesPageMsg struct {
+	Pipelines     []PipelineStatus
+	NextPageToken string
+	HasMorePages  bool
+}
+
+// ApprovalsPageMsg represents a message containing a page of approvals
+type ApprovalsPageMsg struct {
+	Approvals     []ApprovalAction
+	NextPageToken string
+	HasMorePages  bool
 }

@@ -19,6 +19,12 @@ func SelectApproval(m *model.Model) (tea.Model, tea.Cmd) {
 				approval.ActionName == selected[2] {
 				newModel.SelectedApproval = &approval
 				newModel.CurrentView = constants.ViewConfirmation
+
+				// Reset search state
+				newModel.Search.IsActive = false
+				newModel.Search.Query = ""
+				newModel.Search.FilteredItems = make([]interface{}, 0)
+
 				view.UpdateTableForView(newModel)
 				return WrapModel(newModel), nil
 			}
@@ -39,6 +45,12 @@ func HandlePipelineSelection(m *model.Model) (tea.Model, tea.Cmd) {
 				} else {
 					newModel.CurrentView = constants.ViewPipelineStages
 				}
+
+				// Reset search state
+				newModel.Search.IsActive = false
+				newModel.Search.Query = ""
+				newModel.Search.FilteredItems = make([]interface{}, 0)
+
 				view.UpdateTableForView(newModel)
 				return WrapModel(newModel), nil
 			}
