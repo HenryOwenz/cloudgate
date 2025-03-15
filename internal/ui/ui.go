@@ -614,7 +614,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		// Add pagination key handlers
-		case constants.KeyPreviousPage, constants.KeyNextPage:
+		case constants.KeyPreviousPage, constants.KeyNextPage, constants.KeyArrowPreviousPage, constants.KeyArrowNextPage:
 			// If in text input mode, pass the key to the text input
 			if m.core.ManualInput {
 				newModel := m.Clone()
@@ -624,8 +624,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// Handle pagination key presses if in a paginated view
 			if view.IsPaginatedView(m.core.CurrentView) {
-				// Pass the exact key string that was pressed
-				modelWrapper, cmd := update.HandlePaginationKeyPress(m.core, msg.String())
+				// Map arrow keys to their vim-style equivalents for the handler
+				keyString := msg.String()
+				if keyString == constants.KeyArrowPreviousPage {
+					keyString = constants.KeyPreviousPage
+				} else if keyString == constants.KeyArrowNextPage {
+					keyString = constants.KeyNextPage
+				}
+
+				// Pass the key string to the handler
+				modelWrapper, cmd := update.HandlePaginationKeyPress(m.core, keyString)
 				if wrapper, ok := modelWrapper.(update.ModelWrapper); ok {
 					newModel := Model{core: wrapper.Model}
 					if cmd != nil {

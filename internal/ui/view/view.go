@@ -488,13 +488,14 @@ func getTitleText(m *model.Model) string {
 func getHelpText(m *model.Model) string {
 	// Define common help text patterns
 	const (
-		defaultHelpText        = "↑/↓: navigate • %s: select • %s: back • %s: quit"
+		defaultHelpText        = "j/k: navigate • %s: select • %s: back • %s: quit"
 		manualInputHelpText    = "%s: confirm • %s: cancel • %s: quit"
-		summaryHelpText        = "↑/↓: navigate • %s: select • %s: back • %s: quit"
-		providersHelpText      = "↑/↓: navigate • %s: select • %s: quit"
+		summaryHelpText        = "j/k: navigate • %s: select • %s: back • %s: quit"
+		providersHelpText      = "j/k: navigate • %s: select • %s: quit"
 		lambdaCommandModeText  = "-- COMMAND MODE -- • i: enter input mode • enter: execute • %s: back • %s: quit"
 		lambdaInputModeText    = "-- INPUT MODE -- • enter: new line • ctrl+c/esc: exit input mode • %s: back • %s: quit"
-		lambdaResponseHelpText = "↑/↓: scroll • pgup/pgdn: page • home/end: top/bottom • %s: back to editor • %s: quit"
+		lambdaResponseHelpText = "j/k: scroll • b/f: page • g/G: top/bottom • %s: back to editor • %s: quit"
+		paginatedViewHelpText  = "j/k: navigate • h: prev page • l: next page • %s: select • %s: back • %s: quit"
 	)
 
 	// Special cases based on view and state
@@ -514,6 +515,8 @@ func getHelpText(m *model.Model) string {
 		return fmt.Sprintf(lambdaCommandModeText, constants.KeyEsc, constants.KeyQ)
 	case m.CurrentView == constants.ViewLambdaResponse:
 		return fmt.Sprintf(lambdaResponseHelpText, constants.KeyEsc, constants.KeyQ)
+	case IsPaginatedView(m.CurrentView) && m.Pagination.Type != model.PaginationTypeNone:
+		return fmt.Sprintf(paginatedViewHelpText, constants.KeyEnter, constants.KeyEsc, constants.KeyQ)
 	default:
 		return fmt.Sprintf(defaultHelpText, constants.KeyEnter, constants.KeyEsc, constants.KeyQ)
 	}

@@ -11,6 +11,8 @@ const (
 	KeyEsc        = "esc"
 	KeyUp         = "up"
 	KeyDown       = "down"
+	KeyLeft       = "left"
+	KeyRight      = "right"
 	KeyAltUp      = "k"
 	KeyAltDown    = "j"
 	KeyAltBack    = "-"
@@ -32,8 +34,10 @@ const (
 	KeySpace           = " "
 
 	// Pagination keys
-	KeyNextPage     = "l"
-	KeyPreviousPage = "h"
+	KeyNextPage          = "l"
+	KeyPreviousPage      = "h"
+	KeyArrowNextPage     = "right"
+	KeyArrowPreviousPage = "left"
 
 	// Search keys
 	KeySearch    = "/"
