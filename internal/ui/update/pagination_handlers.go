@@ -19,17 +19,39 @@ func HandlePaginationKeyPress(m *model.Model, key string) (tea.Model, tea.Cmd) {
 
 	newModel := m.Clone()
 
+	// Check if we're at the end of the items
+	totalItems := int64(len(newModel.Pagination.AllItems))
+	if len(newModel.Search.FilteredItems) > 0 {
+		totalItems = int64(len(newModel.Search.FilteredItems))
+	}
+
+	// Calculate total pages
+	totalPages := 1
+	if totalItems > 0 && int64(newModel.PageSize) > 0 {
+		totalPages = int((totalItems + int64(newModel.PageSize) - 1) / int64(newModel.PageSize))
+	}
+
 	switch key {
 	case constants.KeyNextPage: // Next page
 		if newModel.Pagination.HasMorePages && !newModel.Pagination.IsLoading {
 			// Don't return the command directly, just set it up to be executed
 			cmd := FetchNextPage(newModel)
 			return WrapModel(newModel), cmd
+		} else if newModel.Pagination.CurrentPage == totalPages && totalPages > 1 {
+			// Wrap around to the first page
+			newModel.Pagination.CurrentPage = 1
+			cmd := FetchPreviousPage(newModel) // Use previous page to go to page 1
+			return WrapModel(newModel), cmd
 		}
 	case constants.KeyPreviousPage: // Previous page
 		if newModel.Pagination.CurrentPage > 1 && !newModel.Pagination.IsLoading {
 			// Don't return the command directly, just set it up to be executed
 			cmd := FetchPreviousPage(newModel)
+			return WrapModel(newModel), cmd
+		} else if newModel.Pagination.CurrentPage == 1 && totalPages > 1 {
+			// Wrap around to the last page
+			newModel.Pagination.CurrentPage = totalPages
+			cmd := FetchNextPage(newModel) // Use next page to go to the last page
 			return WrapModel(newModel), cmd
 		}
 	}
@@ -39,6 +61,12 @@ func HandlePaginationKeyPress(m *model.Model, key string) (tea.Model, tea.Cmd) {
 
 // FetchNextPage fetches the next page based on the current view
 func FetchNextPage(m *model.Model) tea.Cmd {
+	// For client-side pagination, use filtered items if available
+	if m.Pagination.Type == model.PaginationTypeClientSide && len(m.Search.FilteredItems) > 0 {
+		// Use filtered items for pagination
+		return fetchNextPageFromItems(m, m.Search.FilteredItems)
+	}
+
 	switch m.CurrentView {
 	case constants.ViewFunctionStatus:
 		return FetchNextFunctionsPage(m)
@@ -46,6 +74,84 @@ func FetchNextPage(m *model.Model) tea.Cmd {
 		return FetchNextPipelinesPage(m)
 	case constants.ViewApprovals:
 		return FetchNextApprovalsPage(m)
+	default:
+		return nil
+	}
+}
+
+// fetchNextPageFromItems fetches the next page from the given items
+func fetchNextPageFromItems(m *model.Model, items []interface{}) tea.Cmd {
+	// Calculate the next page
+	nextPage := m.Pagination.CurrentPage + 1
+	pageSize := m.Pagination.PageSize
+
+	// Calculate start and end indices for the page
+	startIdx := (nextPage - 1) * pageSize
+	endIdx := startIdx + pageSize
+
+	// Make sure we don't go out of bounds
+	if startIdx >= len(items) {
+		// No more items
+		return nil
+	}
+
+	if endIdx > len(items) {
+		endIdx = len(items)
+	}
+
+	// Determine if there are more pages
+	hasMorePages := endIdx < len(items)
+
+	// Return the appropriate message based on the current view
+	switch m.CurrentView {
+	case constants.ViewFunctionStatus:
+		// Extract functions for this page
+		var pageFunctions []model.FunctionStatus
+		for i := startIdx; i < endIdx; i++ {
+			if function, ok := items[i].(model.FunctionStatus); ok {
+				pageFunctions = append(pageFunctions, function)
+			}
+		}
+
+		return func() tea.Msg {
+			return model.FunctionsPageMsg{
+				Functions:     pageFunctions,
+				NextPageToken: fmt.Sprintf("%d", nextPage),
+				HasMorePages:  hasMorePages,
+			}
+		}
+	case constants.ViewPipelineStatus:
+		// Extract pipelines for this page
+		var pagePipelines []model.PipelineStatus
+		for i := startIdx; i < endIdx; i++ {
+			if pipeline, ok := items[i].(model.PipelineStatus); ok {
+				pagePipelines = append(pagePipelines, pipeline)
+			}
+		}
+
+		return func() tea.Msg {
+			return model.PipelinesPageMsg{
+				Pipelines:     pagePipelines,
+				NextPageToken: fmt.Sprintf("%d", nextPage),
+				HasMorePages:  hasMorePages,
+			}
+		}
+	case constants.ViewApprovals:
+		// Extract approvals for this page
+		var pageApprovals []model.ApprovalAction
+		for i := startIdx; i < endIdx; i++ {
+			if approval, ok := items[i].(model.ApprovalAction); ok {
+				pageApprovals = append(pageApprovals, approval)
+			}
+		}
+
+		return func() tea.Msg {
+			return model.ApprovalsPageMsg{
+				Approvals:     pageApprovals,
+				NextPageToken: fmt.Sprintf("%d", nextPage),
+				HasMorePages:  hasMorePages,
+			}
+		}
 	default:
 		return nil
 	}
@@ -64,23 +170,29 @@ func FetchPreviousPage(m *model.Model) tea.Cmd {
 		prevPage = 1
 	}
 
-	// If we have cached pages, use them for client-side pagination
-	if m.Pagination.Type == model.PaginationTypeClientSide && len(m.Pagination.AllItems) > 0 {
-		// Use cached data based on the view
+	// For client-side pagination, use filtered items if available
+	if m.Pagination.Type == model.PaginationTypeClientSide {
+		// Use filtered items if available, otherwise use all items
+		items := m.Pagination.AllItems
+		if len(m.Search.FilteredItems) > 0 {
+			items = m.Search.FilteredItems
+		}
+
+		// Calculate start and end indices for the page
+		pageSize := m.Pagination.PageSize
+		start := (prevPage - 1) * pageSize
+		end := start + pageSize
+		if end > len(items) {
+			end = len(items)
+		}
+
+		// Return the appropriate message based on the current view
 		switch m.CurrentView {
 		case constants.ViewFunctionStatus:
-			// Calculate start and end indices for the page
-			pageSize := m.Pagination.PageSize
-			start := (prevPage - 1) * pageSize
-			end := start + pageSize
-			if end > len(m.Pagination.AllItems) {
-				end = len(m.Pagination.AllItems)
-			}
-
 			// Extract functions for this page
 			var pageFunctions []model.FunctionStatus
-			for i := start; i < end && i < len(m.Pagination.AllItems); i++ {
-				if function, ok := m.Pagination.AllItems[i].(model.FunctionStatus); ok {
+			for i := start; i < end && i < len(items); i++ {
+				if function, ok := items[i].(model.FunctionStatus); ok {
 					pageFunctions = append(pageFunctions, function)
 				}
 			}
@@ -96,18 +208,10 @@ func FetchPreviousPage(m *model.Model) tea.Cmd {
 				}
 			}
 		case constants.ViewPipelineStatus:
-			// Similar logic for pipelines
-			pageSize := m.Pagination.PageSize
-			start := (prevPage - 1) * pageSize
-			end := start + pageSize
-			if end > len(m.Pagination.AllItems) {
-				end = len(m.Pagination.AllItems)
-			}
-
 			// Extract pipelines for this page
 			var pagePipelines []model.PipelineStatus
-			for i := start; i < end && i < len(m.Pagination.AllItems); i++ {
-				if pipeline, ok := m.Pagination.AllItems[i].(model.PipelineStatus); ok {
+			for i := start; i < end && i < len(items); i++ {
+				if pipeline, ok := items[i].(model.PipelineStatus); ok {
 					pagePipelines = append(pagePipelines, pipeline)
 				}
 			}
@@ -123,18 +227,10 @@ func FetchPreviousPage(m *model.Model) tea.Cmd {
 				}
 			}
 		case constants.ViewApprovals:
-			// Similar logic for approvals
-			pageSize := m.Pagination.PageSize
-			start := (prevPage - 1) * pageSize
-			end := start + pageSize
-			if end > len(m.Pagination.AllItems) {
-				end = len(m.Pagination.AllItems)
-			}
-
 			// Extract approvals for this page
 			var pageApprovals []model.ApprovalAction
-			for i := start; i < end && i < len(m.Pagination.AllItems); i++ {
-				if approval, ok := m.Pagination.AllItems[i].(model.ApprovalAction); ok {
+			for i := start; i < end && i < len(items); i++ {
+				if approval, ok := items[i].(model.ApprovalAction); ok {
 					pageApprovals = append(pageApprovals, approval)
 				}
 			}
@@ -164,6 +260,12 @@ func FetchNextFunctionsPage(m *model.Model) tea.Cmd {
 
 		// For client-side pagination, we already have all the data
 		if newModel.Pagination.Type == model.PaginationTypeClientSide {
+			// Use filtered items if available, otherwise use all items
+			items := newModel.Pagination.AllItems
+			if len(newModel.Search.FilteredItems) > 0 {
+				items = newModel.Search.FilteredItems
+			}
+
 			// Calculate the next page
 			nextPage := newModel.Pagination.CurrentPage + 1
 			pageSize := newModel.Pagination.PageSize
@@ -173,7 +275,7 @@ func FetchNextFunctionsPage(m *model.Model) tea.Cmd {
 			endIdx := startIdx + pageSize
 
 			// Make sure we don't go out of bounds
-			if startIdx >= len(newModel.Pagination.AllItems) {
+			if startIdx >= len(items) {
 				// No more items
 				return model.FunctionsPageMsg{
 					Functions:     []model.FunctionStatus{},
@@ -182,20 +284,20 @@ func FetchNextFunctionsPage(m *model.Model) tea.Cmd {
 				}
 			}
 
-			if endIdx > len(newModel.Pagination.AllItems) {
-				endIdx = len(newModel.Pagination.AllItems)
+			if endIdx > len(items) {
+				endIdx = len(items)
 			}
 
 			// Extract functions for this page
 			var pageFunctions []model.FunctionStatus
 			for i := startIdx; i < endIdx; i++ {
-				if function, ok := newModel.Pagination.AllItems[i].(model.FunctionStatus); ok {
+				if function, ok := items[i].(model.FunctionStatus); ok {
 					pageFunctions = append(pageFunctions, function)
 				}
 			}
 
 			// Determine if there are more pages
-			hasMorePages := endIdx < len(newModel.Pagination.AllItems)
+			hasMorePages := endIdx < len(items)
 
 			return model.FunctionsPageMsg{
 				Functions:     pageFunctions,
@@ -248,6 +350,12 @@ func FetchNextPipelinesPage(m *model.Model) tea.Cmd {
 
 		// For client-side pagination, we already have all the data
 		if newModel.Pagination.Type == model.PaginationTypeClientSide {
+			// Use filtered items if available, otherwise use all items
+			items := newModel.Pagination.AllItems
+			if len(newModel.Search.FilteredItems) > 0 {
+				items = newModel.Search.FilteredItems
+			}
+
 			// Calculate the next page
 			nextPage := newModel.Pagination.CurrentPage + 1
 			pageSize := newModel.Pagination.PageSize
@@ -257,7 +365,7 @@ func FetchNextPipelinesPage(m *model.Model) tea.Cmd {
 			endIdx := startIdx + pageSize
 
 			// Make sure we don't go out of bounds
-			if startIdx >= len(newModel.Pagination.AllItems) {
+			if startIdx >= len(items) {
 				// No more items
 				return model.PipelinesPageMsg{
 					Pipelines:     []model.PipelineStatus{},
@@ -266,20 +374,20 @@ func FetchNextPipelinesPage(m *model.Model) tea.Cmd {
 				}
 			}
 
-			if endIdx > len(newModel.Pagination.AllItems) {
-				endIdx = len(newModel.Pagination.AllItems)
+			if endIdx > len(items) {
+				endIdx = len(items)
 			}
 
 			// Extract pipelines for this page
 			var pagePipelines []model.PipelineStatus
 			for i := startIdx; i < endIdx; i++ {
-				if pipeline, ok := newModel.Pagination.AllItems[i].(model.PipelineStatus); ok {
+				if pipeline, ok := items[i].(model.PipelineStatus); ok {
 					pagePipelines = append(pagePipelines, pipeline)
 				}
 			}
 
 			// Determine if there are more pages
-			hasMorePages := endIdx < len(newModel.Pagination.AllItems)
+			hasMorePages := endIdx < len(items)
 
 			return model.PipelinesPageMsg{
 				Pipelines:     pagePipelines,
@@ -332,6 +440,12 @@ func FetchNextApprovalsPage(m *model.Model) tea.Cmd {
 
 		// For client-side pagination, we already have all the data
 		if newModel.Pagination.Type == model.PaginationTypeClientSide {
+			// Use filtered items if available, otherwise use all items
+			items := newModel.Pagination.AllItems
+			if len(newModel.Search.FilteredItems) > 0 {
+				items = newModel.Search.FilteredItems
+			}
+
 			// Calculate the next page
 			nextPage := newModel.Pagination.CurrentPage + 1
 			pageSize := newModel.Pagination.PageSize
@@ -341,7 +455,7 @@ func FetchNextApprovalsPage(m *model.Model) tea.Cmd {
 			endIdx := startIdx + pageSize
 
 			// Make sure we don't go out of bounds
-			if startIdx >= len(newModel.Pagination.AllItems) {
+			if startIdx >= len(items) {
 				// No more items
 				return model.ApprovalsPageMsg{
 					Approvals:     []model.ApprovalAction{},
@@ -350,20 +464,20 @@ func FetchNextApprovalsPage(m *model.Model) tea.Cmd {
 				}
 			}
 
-			if endIdx > len(newModel.Pagination.AllItems) {
-				endIdx = len(newModel.Pagination.AllItems)
+			if endIdx > len(items) {
+				endIdx = len(items)
 			}
 
 			// Extract approvals for this page
 			var pageApprovals []model.ApprovalAction
 			for i := startIdx; i < endIdx; i++ {
-				if approval, ok := newModel.Pagination.AllItems[i].(model.ApprovalAction); ok {
+				if approval, ok := items[i].(model.ApprovalAction); ok {
 					pageApprovals = append(pageApprovals, approval)
 				}
 			}
 
 			// Determine if there are more pages
-			hasMorePages := endIdx < len(newModel.Pagination.AllItems)
+			hasMorePages := endIdx < len(items)
 
 			return model.ApprovalsPageMsg{
 				Approvals:     pageApprovals,

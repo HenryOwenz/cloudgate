@@ -34,6 +34,10 @@ const (
 	// Pagination keys
 	KeyNextPage     = "l"
 	KeyPreviousPage = "h"
+
+	// Search keys
+	KeySearch    = "/"
+	KeyBackspace = "backspace"
 )
 
 // Authentication method constants

@@ -57,6 +57,9 @@ type Model struct {
 	Pagination Pagination
 	PageSize   int // Global page size setting
 
+	// Search state
+	Search SearchState
+
 	// Legacy fields for backward compatibility
 	// These will be gradually migrated to the new structure
 	AwsProfile        string
@@ -176,6 +179,13 @@ type InputState struct {
 	OperationState map[string]interface{} // Operation-specific state
 }
 
+// SearchState represents the state of the search functionality
+type SearchState struct {
+	IsActive      bool          // Whether search mode is active
+	Query         string        // Current search query
+	FilteredItems []interface{} // Items that match the search query
+}
+
 // New creates and initializes a new Model
 func New() *Model {
 	s := spinner.New()
@@ -213,6 +223,13 @@ func New() *Model {
 			FilteredItems: make([]interface{}, 0),
 		},
 		PageSize: 5,
+
+		// Initialize search state
+		Search: SearchState{
+			IsActive:      false,
+			Query:         "",
+			FilteredItems: make([]interface{}, 0),
+		},
 
 		// Initialize new state structures
 		ProviderState: ProviderState{
@@ -340,6 +357,12 @@ func (m *Model) Clone() *Model {
 	newModel.InputState.OperationState = make(map[string]interface{})
 	for k, v := range m.InputState.OperationState {
 		newModel.InputState.OperationState[k] = v
+	}
+
+	// Deep copy search state
+	if len(m.Search.FilteredItems) > 0 {
+		newModel.Search.FilteredItems = make([]interface{}, len(m.Search.FilteredItems))
+		copy(newModel.Search.FilteredItems, m.Search.FilteredItems)
 	}
 
 	return &newModel

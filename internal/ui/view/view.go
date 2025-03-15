@@ -174,7 +174,33 @@ func renderMainContent(m *model.Model) string {
 
 // renderHelpText renders the help text based on the current view
 func renderHelpText(m *model.Model) string {
+	// If search is active, show search help text
+	if m.Search.IsActive {
+		searchPrompt := "Search: "
+		searchText := m.Search.Query
+		if len(searchText) == 0 {
+			searchText = "_" // Show cursor placeholder when empty
+		} else {
+			searchText += "_" // Add cursor at the end
+		}
+
+		// Style the search prompt and text
+		styledSearchPrompt := m.Styles.SearchPrompt.Render(searchPrompt)
+		styledSearchText := m.Styles.SearchText.Render(searchText)
+
+		// Add help text
+		helpText := m.Styles.Help.Render(" | Enter: confirm • Esc: cancel")
+
+		return lipgloss.JoinHorizontal(lipgloss.Left, styledSearchPrompt, styledSearchText, helpText)
+	}
+
 	helpText := getHelpText(m)
+
+	// Add search hint to regular help text for paginated views
+	if IsPaginatedView(m.CurrentView) && len(m.Pagination.AllItems) > 0 {
+		helpText += " • /: search"
+	}
+
 	return m.Styles.Help.Render(helpText)
 }
 
@@ -444,6 +470,11 @@ func getTitleText(m *model.Model) string {
 
 		if m.Pagination.TotalItems >= 0 {
 			paginationText += fmt.Sprintf(" (%d items)", m.Pagination.TotalItems)
+		}
+
+		// Add search information if search is active
+		if m.Search.IsActive && len(m.Search.Query) > 0 {
+			paginationText += fmt.Sprintf(" - Searching: \"%s\"", m.Search.Query)
 		}
 
 		// Add pagination text to the title

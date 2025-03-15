@@ -437,6 +437,41 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		// Handle search mode input if search is active
+		if m.core.Search.IsActive {
+			switch msg.String() {
+			case constants.KeyEsc, constants.KeyCtrlC:
+				// Exit search mode
+				newModel := m.Clone()
+				newModel.core = update.DeactivateSearch(newModel.core)
+				return newModel, nil
+			case constants.KeyEnter:
+				// Confirm search and exit search mode
+				newModel := m.Clone()
+				newModel.core.Search.IsActive = false
+				return newModel, nil
+			case constants.KeyBackspace:
+				// Handle backspace in search query
+				if len(m.core.Search.Query) > 0 {
+					newModel := m.Clone()
+					newModel.core.Search.Query = newModel.core.Search.Query[:len(newModel.core.Search.Query)-1]
+					newModel.core = update.UpdateSearchQuery(newModel.core, newModel.core.Search.Query)
+					return newModel, nil
+				}
+				return m, nil
+			default:
+				// Add character to search query if it's a printable character
+				r := msg.Runes
+				if len(r) == 1 && update.IsPrintableChar(r[0]) {
+					newModel := m.Clone()
+					newModel.core.Search.Query += string(r)
+					newModel.core = update.UpdateSearchQuery(newModel.core, newModel.core.Search.Query)
+					return newModel, nil
+				}
+				return m, nil
+			}
+		}
+
 		// Handle key presses when not loading
 		switch msg.String() {
 		case constants.KeyCtrlC, constants.KeyQ:
@@ -585,6 +620,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				var cmd tea.Cmd
 				newModel.core.TextArea, cmd = newModel.core.TextArea.Update(msg)
 				return newModel, cmd
+			}
+			return m, nil
+		// Add search key handler
+		case constants.KeySearch:
+			// Only activate search in paginated views with data
+			if view.IsPaginatedView(m.core.CurrentView) && len(m.core.Pagination.AllItems) > 0 {
+				newModel := m.Clone()
+				newModel.core = update.ActivateSearch(newModel.core)
+				return newModel, nil
 			}
 			return m, nil
 		// Add pagination key handlers
