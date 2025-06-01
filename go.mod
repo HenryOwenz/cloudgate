@@ -5,7 +5,7 @@ go 1.24
 require (
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
-	github.com/aws/aws-sdk-go-v2/service/codepipeline v1.41.0
+	github.com/aws/aws-sdk-go-v2/service/codepipeline v1.42.0
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.71.2
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/bubbletea v1.3.5
